@@ -11,6 +11,7 @@ Uses DATABASE_URL environment variable (set automatically by Railway).
 
 import os
 import io
+import re
 import time
 import random
 import psycopg2
@@ -58,12 +59,15 @@ def init_db():
         with open(schema_path, "r", encoding="utf-8") as f:
             sql = f.read()
 
+        # Strip all -- comments first, THEN split by semicolon.
+        # Without this, chunks that start with a comment block (but contain
+        # a CREATE TABLE) get incorrectly filtered out, leaving tables unbuilt.
+        sql_clean = re.sub(r'--[^\n]*', '', sql)
+        statements = [s.strip() for s in sql_clean.split(";") if s.strip()]
+
         cur = conn.cursor()
-        # Split by semicolon and execute each statement individually
-        statements = [s.strip() for s in sql.split(";") if s.strip() and not s.strip().startswith("--")]
         for stmt in statements:
-            if stmt:
-                cur.execute(stmt)
+            cur.execute(stmt)
         conn.commit()
         cur.close()
         print("[init_db] PostgreSQL DB initialized successfully.")
