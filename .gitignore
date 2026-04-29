@@ -1,0 +1,35 @@
+# Environment variables - NEVER commit this
+.env
+.env.*
+
+# SQLite database files - data is ephemeral on Railway anyway
+*.db
+*.sqlite
+*.sqlite3
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Distribution / packaging
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# IDE / OS
+.idea/
+.vscode/
+*.DS_Store
+Thumbs.db
+
+# Logs
+*.log

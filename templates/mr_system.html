@@ -1,0 +1,1227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SRPS Cargo — Premium MR Management</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* ===== CSS VARIABLES - Light & Dark ===== */
+  :root {
+    --bg-main: #f1f5f9;
+    --bg-deep: #e2e8f0;
+    --card-bg: #ffffff;
+    --card-hover: #f8fafc;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #94a3b8;
+    --border-light: #cbd5e1;
+    --border-mid: #e2e8f0;
+    --accent: #0ea5e9;
+    --accent-glow: rgba(14, 165, 233, 0.18);
+    --accent-cyan: #06b6d4;
+    --accent-purple: #8b5cf6;
+    --accent-green: #10b981;
+    --input-bg: #f8fafc;
+    --input-border: #cbd5e1;
+    --input-focus: #0ea5e9;
+    --modal-bg: #ffffff;
+    --glass-bg: rgba(255,255,255,0.85);
+    --glass-border: rgba(203,213,225,0.6);
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+    --shadow-lg: 0 12px 28px rgba(0,0,0,0.12);
+    --btn-secondary-bg: #f1f5f9;
+    --btn-secondary-color: #334155;
+    --btn-secondary-border: #cbd5e1;
+    --badge-online-bg: #dbeafe;
+    --badge-online-color: #1d4ed8;
+    --badge-offline-bg: #d1fae5;
+    --badge-offline-color: #065f46;
+    --row-stripe: #f8fafc;
+  }
+
+  body.dark-mode {
+    --bg-main: #0b1120;
+    --bg-deep: #060d1a;
+    --card-bg: #131e30;
+    --card-hover: #1a2840;
+    --text-primary: #f0f6ff;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    --border-light: #1e3048;
+    --border-mid: #243350;
+    --input-bg: #0f1d2e;
+    --input-border: #1e3048;
+    --input-focus: #38bdf8;
+    --modal-bg: #131e30;
+    --glass-bg: rgba(13,25,45,0.95);
+    --glass-border: rgba(30,48,72,0.8);
+    --btn-secondary-bg: #1a2840;
+    --btn-secondary-color: #94a3b8;
+    --btn-secondary-border: #1e3048;
+    --badge-online-bg: rgba(59,130,246,0.15);
+    --badge-online-color: #60a5fa;
+    --badge-offline-bg: rgba(16,185,129,0.15);
+    --badge-offline-color: #34d399;
+    --row-stripe: #0f1d2e;
+  }
+
+  * {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    box-sizing: border-box;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+    min-height: 100vh;
+    margin: 0;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--text-primary);
+  }
+
+  header {
+    background: var(--card-bg);
+    border-bottom: 1px solid var(--border-light);
+    padding: 1rem 2rem;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: var(--shadow-sm);
+    transition: background 0.3s, border-color 0.3s;
+  }
+
+  .nav-link {
+    font-weight: 600;
+    color: var(--text-secondary);
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    transition: all 0.2s;
+    cursor: pointer;
+    font-size: 0.95rem;
+  }
+  .nav-link:hover { color: var(--accent); }
+  .nav-link.active {
+    color: var(--accent);
+    position: relative;
+  }
+  .nav-link.active::after {
+    content: '';
+    position: absolute;
+    bottom: -1.2rem;
+    left: 0; right: 0;
+    height: 3px;
+    background: var(--accent);
+    border-radius: 10px 10px 0 0;
+  }
+
+  .glass {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    transition: background 0.3s, border-color 0.3s;
+  }
+
+  .overview-card {
+    background: var(--card-bg);
+    border-radius: 20px;
+    padding: 22px 24px;
+    border: 1px solid var(--border-light);
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 1.25rem;
+    box-shadow: var(--shadow-sm);
+    transition: background 0.3s, border-color 0.3s, box-shadow 0.2s;
+  }
+  .overview-card:hover { box-shadow: var(--shadow-md); }
+  .overview-card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 15%; bottom: 15%;
+    width: 5px;
+    border-radius: 0 4px 4px 0;
+  }
+  .card-cyan::before { background: var(--accent-cyan); box-shadow: 4px 0 12px rgba(6,182,212,0.4); }
+  .card-purple::before { background: var(--accent-purple); box-shadow: 4px 0 12px rgba(139,92,246,0.4); }
+  .card-green::before { background: var(--accent-green); box-shadow: 4px 0 12px rgba(16,185,129,0.4); }
+
+  .overview-card p {
+    text-transform: uppercase;
+    font-size: 0.65rem;
+    font-weight: 800;
+    color: var(--text-muted);
+    letter-spacing: 0.08em;
+    margin-bottom: 0.4rem;
+  }
+  .overview-card .value {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--text-primary);
+  }
+
+  .btn {
+    padding: 0.6rem 1.2rem;
+    border-radius: 10px;
+    font-weight: 700;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    border: none;
+    font-size: 0.875rem;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+    box-shadow: 0 2px 8px var(--accent-glow);
+  }
+  .btn-primary:hover { filter: brightness(1.08); transform: translateY(-1px); box-shadow: 0 6px 16px var(--accent-glow); }
+
+  .btn-secondary {
+    background: var(--btn-secondary-bg);
+    color: var(--btn-secondary-color);
+    border: 1px solid var(--btn-secondary-border);
+  }
+  .btn-secondary:hover { filter: brightness(0.96); }
+
+  .btn-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    background: var(--btn-secondary-bg);
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--btn-secondary-border);
+    cursor: pointer;
+    font-size: 1.1rem;
+    transition: all 0.2s;
+  }
+  .btn-icon:hover { transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+
+  .input-group { display: flex; flex-direction: column; gap: 6px; }
+  .input-group label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-secondary);
+  }
+  .input-group input,
+  .input-group select,
+  .input-group textarea {
+    background: var(--input-bg);
+    border: 1.5px solid var(--input-border);
+    border-radius: 10px;
+    padding: 0.65rem 0.9rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    width: 100%;
+    outline: none;
+    transition: all 0.2s;
+  }
+  .input-group input:focus,
+  .input-group select:focus,
+  .input-group textarea:focus {
+    border-color: var(--input-focus);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+    background: var(--card-bg);
+  }
+  .input-group input::placeholder { color: var(--text-muted); }
+  .input-group select option { background: var(--card-bg); color: var(--text-primary); }
+  .input-group input[type="number"] { font-family: 'Outfit', monospace; font-weight: 600; }
+
+  .form-section-title {
+    grid-column: 1 / -1;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: var(--bg-main);
+    border-left: 4px solid var(--accent);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-top: 4px;
+  }
+
+  .entry-date-picker {
+    background: var(--card-bg);
+    border: 1.5px solid var(--border-light);
+    border-radius: 12px;
+    padding: 0.65rem 1.1rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: var(--shadow-sm);
+  }
+  .entry-date-picker input {
+    border: none; background: transparent; padding: 0; width: auto;
+    font-weight: 700; font-size: 0.9rem; color: var(--text-primary);
+    outline: none; cursor: pointer;
+  }
+
+  .train-grid-card {
+    background: var(--card-bg);
+    border-radius: 18px;
+    padding: 20px;
+    border: 1px solid var(--border-light);
+    transition: all 0.3s;
+    box-shadow: var(--shadow-sm);
+  }
+  .train-grid-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
+
+  .train-num { font-family: 'Outfit', sans-serif; font-size: 2.2rem; font-weight: 800; color: var(--text-muted); }
+  .train-name { font-size: 1.05rem; font-weight: 700; color: var(--text-primary); }
+  .train-contract { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+  .train-total { font-size: 0.9rem; font-weight: 800; color: var(--text-primary); }
+
+  .entry-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 7px 0; border-top: 1px dashed var(--border-mid); margin-top: 4px;
+  }
+  .entry-ref { font-size: 0.72rem; font-weight: 700; color: var(--text-secondary); }
+  .entry-amt { font-size: 0.75rem; font-weight: 800; color: var(--accent); }
+  .entry-edit-btn {
+    font-size: 0.65rem; font-weight: 700; color: var(--text-muted);
+    padding: 3px 8px; border-radius: 6px; border: 1px solid var(--border-light);
+    background: var(--btn-secondary-bg); cursor: pointer; transition: all 0.2s;
+  }
+  .entry-edit-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+  .pill {
+    padding: 3px 10px; border-radius: 20px; font-size: 0.65rem;
+    font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .pill-done { background: var(--badge-online-bg); color: var(--badge-online-color); border: 1px solid rgba(59,130,246,0.2); }
+  .pill-pending { background: var(--badge-offline-bg); color: var(--badge-offline-color); border: 1px solid rgba(16,185,129,0.2); }
+
+  .tx-wrap {
+    background: var(--card-bg); border: 1px solid var(--border-light);
+    border-radius: 16px; overflow: hidden; box-shadow: var(--shadow-sm);
+  }
+  .tx-table { width: 100%; border-collapse: collapse; }
+  .tx-table thead { background: var(--bg-main); border-bottom: 2px solid var(--border-light); position: sticky; top: 0; z-index: 2; }
+  .tx-table th {
+    padding: 12px 12px; font-size: 0.6rem; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.08em; font-weight: 800;
+    text-align: left; white-space: nowrap;
+  }
+  .tx-row { border-bottom: 1px solid var(--border-mid); transition: background 0.15s; }
+  .tx-row:last-child { border-bottom: none; }
+  .tx-row:hover { background: var(--row-stripe); }
+  .tx-row td { padding: 12px 12px; font-size: 0.82rem; color: var(--text-primary); vertical-align: middle; white-space: nowrap; }
+  .tx-row td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .tx-row td.dim { color: var(--text-muted); }
+  .tx-table th.num { text-align: right; }
+  .tx-table th.grp-online { background: rgba(59,130,246,0.08); color: #3b82f6; border-left: 1px dashed rgba(59,130,246,0.3); }
+  .tx-table th.grp-offline { background: rgba(16,185,129,0.08); color: #10b981; border-left: 1px dashed rgba(16,185,129,0.3); }
+  .tx-row td.grp-online-edge { border-left: 1px dashed rgba(59,130,246,0.2); }
+  .tx-row td.grp-offline-edge { border-left: 1px dashed rgba(16,185,129,0.2); }
+  .online-row { border-left: 4px solid #3b82f6; }
+  .offline-row { border-left: 4px solid #10b981; }
+
+  .tx-label { font-weight: 700; color: var(--text-primary); font-size: 0.875rem; }
+  .tx-sub { font-size: 0.68rem; font-weight: 600; color: var(--text-muted); margin-top: 2px; }
+  .tx-amount { font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 700; color: var(--accent); }
+  .tx-fine { font-size: 0.7rem; font-weight: 600; color: #f87171; margin-top: 2px; }
+
+  .mode-badge {
+    padding: 3px 8px; border-radius: 6px; font-size: 0.6rem;
+    font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .mode-online { background: var(--badge-online-bg); color: var(--badge-online-color); }
+  .mode-offline { background: var(--badge-offline-bg); color: var(--badge-offline-color); }
+
+  .action-btn {
+    width: 32px; height: 32px; border-radius: 8px;
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer; border: 1px solid var(--border-light);
+    background: var(--btn-secondary-bg); transition: all 0.2s; font-size: 0.9rem;
+  }
+  .action-btn:hover { transform: scale(1.1); }
+  .action-btn.edit:hover { background: #dbeafe; border-color: #93c5fd; }
+  .action-btn.del:hover { background: #fee2e2; border-color: #fca5a5; }
+
+  .filter-bar {
+    background: var(--card-bg); border: 1px solid var(--border-light);
+    border-radius: 14px; padding: 20px 24px; margin-bottom: 20px;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px; align-items: end; box-shadow: var(--shadow-sm);
+  }
+
+  .modal-overlay { background: rgba(0,0,0,0.65); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+  .modal-box {
+    background: var(--modal-bg); border: 1px solid var(--border-light);
+    border-radius: 24px; padding: 32px; max-width: 900px; width: 100%;
+    box-shadow: var(--shadow-lg); transition: background 0.3s, border-color 0.3s;
+  }
+  .modal-header-badge { margin-bottom: 6px; }
+  .modal-title { font-size: 1.8rem; font-weight: 800; color: var(--text-primary); }
+  .modal-subtitle { color: var(--text-muted); font-size: 0.85rem; margin-top: 4px; }
+
+  .horizontal-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; }
+  .modal-footer {
+    border-top: 1px solid var(--border-light);
+    padding-top: 20px; margin-top: 20px;
+    display: flex; justify-content: flex-end; gap: 12px;
+  }
+  .close-btn {
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 1px solid var(--border-light); background: var(--btn-secondary-bg);
+    color: var(--text-secondary);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 1rem; transition: all 0.2s;
+  }
+  .close-btn:hover { background: #fee2e2; border-color: #fca5a5; color: #ef4444; }
+
+  .master-card {
+    background: var(--card-bg); border: 1px solid var(--border-light);
+    border-radius: 20px; padding: 22px; box-shadow: var(--shadow-sm);
+    transition: all 0.3s; position: relative; overflow: hidden;
+  }
+  .master-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+
+  .tab-content { animation: fadeIn 0.35s ease; }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg-main); }
+  ::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+  #toast {
+    position: fixed; bottom: 2rem; left: 50%;
+    transform: translate(-50%, 40px);
+    padding: 12px 24px; border-radius: 14px;
+    background: var(--card-bg); border: 1px solid var(--border-light);
+    color: var(--text-primary); font-weight: 700; font-size: 0.875rem;
+    opacity: 0; transition: all 0.3s; z-index: 200;
+    box-shadow: var(--shadow-lg); pointer-events: none; white-space: nowrap;
+  }
+
+  /* App switcher pill in top-right */
+  .system-switch {
+    display: inline-flex;
+    background: var(--btn-secondary-bg);
+    border: 1px solid var(--btn-secondary-border);
+    border-radius: 10px;
+    padding: 3px;
+    font-size: 0.78rem;
+  }
+  .system-switch a {
+    padding: 6px 12px; border-radius: 8px; font-weight: 700;
+    color: var(--text-secondary); text-decoration: none;
+  }
+  .system-switch a.active { background: var(--accent); color: #fff; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <div class="max-w-[1400px] mx-auto flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-xl shadow-lg">🚂</div>
+      <div>
+        <h1 class="text-lg font-extrabold leading-tight">SRPS Cargo</h1>
+        <p style="font-size:0.62rem; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--text-muted);">MR Management System</p>
+      </div>
+    </div>
+
+    <nav class="hidden md:flex items-center gap-6">
+      <div class="nav-link active" data-tab="home" onclick="switchTab('home')">Dashboard</div>
+      <div class="nav-link" data-tab="all" onclick="switchTab('all')">Transactions</div>
+      <div class="nav-link" data-tab="masters" onclick="switchTab('masters')">Masters</div>
+      <div class="nav-link" data-tab="reports" onclick="switchTab('reports')">Reports</div>
+    </nav>
+
+    <div class="flex items-center gap-3">
+      <div class="system-switch">
+        <a href="/mr" class="active">MR</a>
+        <a href="/rr">RR</a>
+      </div>
+      <button class="btn-icon" onclick="toggleTheme()" id="themeBtn" title="Toggle Theme">🌙</button>
+      <button class="btn-icon" onclick="showBackup()" title="Backup Data">💾</button>
+      <button onclick="switchTab('masters')" class="btn btn-primary">+ Add Train</button>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-[1400px] mx-auto p-6 md:p-8">
+
+  <!-- ===== DASHBOARD ===== -->
+  <section id="tab-home" class="tab-content">
+    <div class="flex flex-col lg:flex-row gap-10">
+      <div class="lg:w-[300px] shrink-0">
+        <h2 class="text-2xl font-black mb-6">Overview</h2>
+        <div class="overview-card card-cyan">
+          <p>Today's Revenue</p>
+          <div class="value" id="statTodayRevenue">₹ 0.00</div>
+        </div>
+        <div class="overview-card card-purple">
+          <p>Monthly Billing</p>
+          <div class="value" id="statMonthlyBilling">₹ 0.00</div>
+        </div>
+        <div class="overview-card card-green">
+          <p>Total Records</p>
+          <div class="value" id="statTotalRecords">0</div>
+        </div>
+      </div>
+
+      <div class="flex-1">
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="text-2xl font-black">Quick Entry</h2>
+          <div class="entry-date-picker">
+            <span style="font-size:0.62rem; font-weight:800; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-muted);">Date:</span>
+            <input type="date" id="dashboardDate" onchange="renderDashboard()">
+          </div>
+        </div>
+        <div id="quickCards" class="grid grid-cols-1 xl:grid-cols-2 gap-5"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== TRANSACTIONS ===== -->
+  <section id="tab-all" class="tab-content hidden">
+    <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
+      <div>
+        <h2 class="text-3xl font-black">Transactions</h2>
+        <p style="font-size:0.85rem; color:var(--text-muted); margin-top:2px;">Manage and audit all train records</p>
+      </div>
+      <div class="flex gap-3">
+        <button onclick="exportExcel()" class="btn btn-secondary">📊 Export to Excel</button>
+      </div>
+    </div>
+
+    <div class="filter-bar">
+      <div class="input-group">
+        <label>Search Train</label>
+        <input type="text" id="filterTrain" oninput="renderLogs()" placeholder="Train number or name…">
+      </div>
+      <div class="input-group">
+        <label>From Date</label>
+        <input type="date" id="filterFrom" onchange="renderLogs()">
+      </div>
+      <div class="input-group">
+        <label>To Date</label>
+        <input type="date" id="filterTo" onchange="renderLogs()">
+      </div>
+      <div style="display:flex;align-items:flex-end;">
+        <button onclick="clearFilters()" class="btn btn-secondary w-full">✕ Clear Filters</button>
+      </div>
+    </div>
+
+    <div class="tx-wrap">
+      <div style="overflow-x:auto;">
+        <table class="tx-table">
+          <thead id="logHeader"></thead>
+          <tbody id="logBody"></tbody>
+        </table>
+      </div>
+      <div id="logEmpty" class="hidden" style="padding:48px; text-align:center; color:var(--text-muted); font-size:0.9rem;">
+        No transactions found. Adjust your filters or add a new entry.
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== REPORTS ===== -->
+  <section id="tab-reports" class="tab-content hidden">
+    <h2 class="text-3xl font-bold mb-6">System Reports</h2>
+    <div id="reportsContainer"></div>
+  </section>
+
+  <!-- ===== MASTERS ===== -->
+  <section id="tab-masters" class="tab-content hidden">
+    <h2 class="text-3xl font-bold mb-6">System Configuration</h2>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div class="lg:col-span-1">
+        <div class="glass p-7 rounded-2xl h-fit sticky top-24" style="border-radius:18px;">
+          <h3 class="text-lg font-bold mb-5" style="color:var(--text-primary);">Register New Train</h3>
+          <form id="trainForm" class="space-y-4">
+            <div class="input-group">
+              <label>Train Number</label>
+              <input type="text" id="m_no" required placeholder="e.g. 19037">
+            </div>
+            <div class="input-group">
+              <label>Train Name</label>
+              <input type="text" id="m_name" required placeholder="e.g. Bandra Avadh">
+            </div>
+            <div class="input-group">
+              <label>Mode</label>
+              <select id="m_mode">
+                <option value="offline">Offline (MR Based)</option>
+                <option value="online">Online (GST Based)</option>
+              </select>
+            </div>
+            <div class="input-group">
+              <label>Contract Number</label>
+              <input type="text" id="m_contract" placeholder="e.g. CON-101">
+            </div>
+            <button type="submit" class="btn btn-primary w-full mt-2">Save Configuration</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="lg:col-span-2">
+        <div id="masterTrainCards" class="grid grid-cols-1 md:grid-cols-2 gap-5"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ===== BOOKING MODAL ===== -->
+<div id="bookModal" class="modal-overlay fixed inset-0 hidden items-center justify-center z-50 p-4 overflow-y-auto">
+  <div class="modal-box transition-all scale-95 opacity-0 duration-300 my-8" id="bookModalContent">
+    <div class="flex justify-between items-start mb-6">
+      <div>
+        <div id="modalTrainBadge" class="pill pill-done mb-2 inline-block">ONLINE</div>
+        <h2 class="modal-title" id="modalTitle">Entry</h2>
+        <p class="modal-subtitle" id="modalSubtitle"></p>
+      </div>
+      <button onclick="closeBook()" class="close-btn">✕</button>
+    </div>
+    <div id="modalFields" class="horizontal-form mb-2"></div>
+    <div class="modal-footer">
+      <button onclick="closeBook()" class="btn btn-secondary">Cancel</button>
+      <button onclick="saveBooking()" class="btn btn-primary" style="min-width:160px;">💾 Save Entry</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ===== THEME ===== */
+function toggleTheme() {
+  document.body.classList.toggle('dark-mode');
+  const isDark = document.body.classList.contains('dark-mode');
+  localStorage.setItem('srps_theme', isDark ? 'dark' : 'light');
+  document.getElementById('themeBtn').textContent = isDark ? '☀️' : '🌙';
+}
+if (localStorage.getItem('srps_theme') === 'dark') {
+  document.body.classList.add('dark-mode');
+  document.getElementById('themeBtn').textContent = '☀️';
+}
+
+/* ===== STATE (loaded from API) ===== */
+let entries = [];
+let trains  = [];
+
+/* ===== API HELPERS ===== */
+async function api(path, opts = {}) {
+  const res = await fetch(path, {
+    headers: { 'Content-Type': 'application/json' },
+    ...opts,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || 'Request failed');
+  }
+  return res.json();
+}
+
+async function loadAll() {
+  try {
+    [trains, entries] = await Promise.all([
+      api('/api/mr/trains'),
+      api('/api/mr/entries'),
+    ]);
+  } catch (e) {
+    toast('⚠️ Failed to load data: ' + e.message);
+    trains = []; entries = [];
+  }
+}
+
+/* ===== UTILS ===== */
+const $ = id => document.getElementById(id);
+const todayISO = () => new Date().toISOString().split('T')[0];
+const fmt = n => (+n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.style.opacity = '1';
+  t.style.transform = 'translate(-50%, 0)';
+  setTimeout(() => {
+    t.style.opacity = '0';
+    t.style.transform = 'translate(-50%, 40px)';
+  }, 3000);
+}
+
+/* ===== TAB SYSTEM ===== */
+function switchTab(tab) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+  document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
+  $(`tab-${tab}`).classList.remove('hidden');
+  document.querySelector(`.nav-link[data-tab="${tab}"]`).classList.add('active');
+  if (tab === 'home')    renderDashboard();
+  if (tab === 'all')     renderLogs();
+  if (tab === 'masters') renderMasters();
+  if (tab === 'reports') renderReports();
+}
+
+/* ===== DASHBOARD ===== */
+function renderDashboard() {
+  const date = $('dashboardDate').value || todayISO();
+  $('dashboardDate').value = date;
+
+  const todayEnts = entries.filter(e => e.date === date);
+  const month     = date.substring(0, 7);
+  const monthEnts = entries.filter(e => e.date && e.date.startsWith(month));
+
+  const todayRev = todayEnts.reduce((s, e) => s + (e.total_value_supply || e.total || 0), 0);
+  const monthRev = monthEnts.reduce((s, e) => s + (e.total_value_supply || e.total || 0), 0);
+
+  $('statTodayRevenue').textContent   = `₹ ${fmt(todayRev)}`;
+  $('statMonthlyBilling').textContent = `₹ ${fmt(monthRev)}`;
+  $('statTotalRecords').textContent   = entries.length;
+
+  renderQuickCards();
+}
+
+function renderQuickCards() {
+  const date = $('dashboardDate').value || todayISO();
+
+  $('quickCards').innerHTML = trains.map(t => {
+    const booked = entries.filter(e => e.train_no === t.no && e.date === date);
+
+    const entriesHtml = booked.length
+      ? booked.map(e => `
+          <div class="entry-item">
+            <span class="entry-ref">${e.mode === 'online' ? 'INV: ' + (e.invoice || '—') : 'MR: ' + (e.mr || '—')}</span>
+            <span class="entry-amt">₹${fmt(e.total_value_supply || e.total)}</span>
+            <button class="entry-edit-btn" onclick="openBook('${t.no}','${date}','${e.id}')">✏️ Edit</button>
+          </div>`).join('')
+      : `<p style="font-size:0.72rem; color:var(--text-muted); font-style:italic; margin-top:8px;">No entries for this date</p>`;
+
+    const stdVal = t.fixed.total_supply || t.fixed.total;
+
+    return `
+      <div class="train-grid-card">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;">
+          <span class="train-num">${t.no.split(' ')[0]}</span>
+          <span class="pill ${t.mode === 'online' ? 'pill-done' : 'pill-pending'}">${t.mode.toUpperCase()}</span>
+        </div>
+        <div class="train-name">${t.name}</div>
+        <div class="train-contract" style="margin-top:3px;">Contract: ${t.contract}</div>
+        <div style="margin-top:12px;">${entriesHtml}</div>
+        <div style="margin-top:14px; padding-top:12px; border-top:1px dashed var(--border-mid); display:flex; justify-content:space-between; align-items:center;">
+          <div class="train-total">₹${fmt(stdVal)} <span style="font-size:0.7rem; font-weight:500; color:var(--text-muted);">/ std</span></div>
+          <button onclick="openBook('${t.no}','${date}')" class="btn btn-primary" style="padding:6px 14px; font-size:0.78rem;">+ Add Entry</button>
+        </div>
+      </div>`;
+  }).join('') || '<p style="text-align:center; padding:3rem; color:var(--text-muted);">No trains configured. Use Masters to add one.</p>';
+}
+
+/* ===== BOOKING MODAL ===== */
+let activeBooking = null;
+
+function openBook(trainNo, date, entryId = null) {
+  const t = trains.find(x => x.no === trainNo);
+  if (!t) return;
+  const entry = entryId ? (entries.find(e => e.id === entryId) || {}) : {};
+
+  activeBooking = { train: t, date, entry };
+
+  $('modalTitle').textContent    = t.name;
+  $('modalSubtitle').textContent = `${trainNo} · ${new Date(date + 'T00:00:00').toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' })}`;
+  $('modalTrainBadge').textContent = t.mode.toUpperCase();
+  $('modalTrainBadge').className   = `pill ${t.mode === 'online' ? 'pill-done' : 'pill-pending'} inline-block modal-header-badge`;
+
+  let html = `
+    <div class="form-section-title">📋 Common Details</div>
+    <div class="input-group">
+      <label>Issue Date</label>
+      <input type="date" id="b_issue_date" value="${entry.issue_date || date}">
+    </div>
+    <div class="input-group">
+      <label>Contract No</label>
+      <input type="text" id="b_contract" value="${entry.contract !== undefined ? entry.contract : t.contract}">
+    </div>
+    <div class="input-group">
+      <label>Space (Ton)</label>
+      <select id="b_space">
+        <option value="3.9" ${(entry.space || '') === '3.9' ? 'selected' : ''}>3.9</option>
+        <option value="4.0" ${(entry.space || '') === '4.0' ? 'selected' : ''}>4.0</option>
+      </select>
+    </div>
+    <div class="input-group">
+      <label>Penalty Amount (₹)</label>
+      <input type="number" id="b_penalty" value="${entry.penalty !== undefined ? entry.penalty : 0}" min="0" step="0.01">
+    </div>
+  `;
+
+  if (t.mode === 'online') {
+    html += `
+      <div class="form-section-title">🧾 Online / GST Details</div>
+      <div class="input-group"><label>Invoice No</label>
+        <input type="text" id="b_invoice" value="${entry.invoice || ''}"></div>
+      <div class="input-group"><label>Service Date</label>
+        <input type="date" id="b_service_date" value="${entry.service_date || date}"></div>
+      <div class="input-group"><label>Taxable Value (₹)</label>
+        <input type="number" step="0.01" id="b_taxable" value="${entry.taxable !== undefined ? entry.taxable : t.fixed.taxable}"></div>
+      <div class="input-group"><label>CGST @ 2.5% (₹)</label>
+        <input type="number" step="0.01" id="b_cgst" value="${entry.cgst !== undefined ? entry.cgst : t.fixed.cgst}"></div>
+      <div class="input-group"><label>SGST @ 2.5% (₹)</label>
+        <input type="number" step="0.01" id="b_sgst" value="${entry.sgst !== undefined ? entry.sgst : t.fixed.sgst}"></div>
+      <div class="input-group"><label>IGST @ 5% (₹)</label>
+        <input type="number" step="0.01" id="b_igst" value="${entry.igst !== undefined ? entry.igst : t.fixed.igst}"></div>
+      <div class="input-group"><label>Total Value of Supply (₹)</label>
+        <input type="number" step="0.01" id="b_total_supply" value="${entry.total_value_supply !== undefined ? entry.total_value_supply : t.fixed.total_supply}"></div>
+    `;
+  } else {
+    html += `
+      <div class="form-section-title">📦 Offline / MR Details</div>
+      <div class="input-group"><label>SLR Side</label>
+        <select id="b_side">
+          <option ${entry.side === 'F-SLR' ? 'selected' : ''}>F-SLR</option>
+          <option ${entry.side === 'R-SLR' ? 'selected' : ''}>R-SLR</option>
+          <option ${entry.side === 'SLR'   ? 'selected' : ''}>SLR</option>
+        </select></div>
+      <div class="input-group"><label>MR No</label>
+        <input type="text" id="b_mr" value="${entry.mr || ''}"></div>
+      <div class="input-group"><label>Weight (TON)</label>
+        <input type="text" id="b_weight" value="${entry.weight !== undefined ? entry.weight : t.fixed.weight}"></div>
+      <div class="input-group"><label>GST Amount (₹)</label>
+        <input type="number" step="0.01" id="b_gst" value="${entry.gst !== undefined ? entry.gst : t.fixed.gst}"></div>
+      <div class="input-group"><label>MR Amount (₹)</label>
+        <input type="number" step="0.01" id="b_mramt" value="${entry.mramt !== undefined ? entry.mramt : t.fixed.mr_amt}"></div>
+      <div class="input-group"><label>Total Amount (₹)</label>
+        <input type="number" step="0.01" id="b_total" value="${entry.total !== undefined ? entry.total : t.fixed.total}"></div>
+      <div class="input-group"><label>Payment Mode</label>
+        <input type="text" id="b_pmode" value="${entry.pmode !== undefined ? entry.pmode : t.fixed.pmode}"></div>
+      <div class="input-group"><label>Remark</label>
+        <input type="text" id="b_remark" value="${entry.remark || ''}"></div>
+    `;
+  }
+
+  $('modalFields').innerHTML = html;
+  $('bookModal').classList.remove('hidden');
+  $('bookModal').classList.add('flex');
+  setTimeout(() => $('bookModalContent').classList.remove('scale-95', 'opacity-0'), 10);
+}
+
+function closeBook() {
+  $('bookModalContent').classList.add('scale-95', 'opacity-0');
+  setTimeout(() => {
+    $('bookModal').classList.add('hidden');
+    $('bookModal').classList.remove('flex');
+    activeBooking = null;
+  }, 200);
+}
+
+async function saveBooking() {
+  const { train: t, date, entry } = activeBooking;
+  const isUpdate = !!(entry && entry.id);
+
+  const baseData = {
+    id:         entry.id || null,
+    date:       date,
+    train_no:   t.no,
+    mode:       t.mode,
+    contract:   $('b_contract').value,
+    space:      $('b_space').value,
+    penalty:    parseFloat($('b_penalty').value) || 0,
+    issue_date: $('b_issue_date').value,
+  };
+
+  let specificData = {};
+  if (t.mode === 'online') {
+    specificData = {
+      invoice:            $('b_invoice').value,
+      service_date:       $('b_service_date').value,
+      taxable:            parseFloat($('b_taxable').value) || 0,
+      cgst:               parseFloat($('b_cgst').value) || 0,
+      sgst:               parseFloat($('b_sgst').value) || 0,
+      igst:               parseFloat($('b_igst').value) || 0,
+      total_value_supply: parseFloat($('b_total_supply').value) || 0,
+    };
+  } else {
+    specificData = {
+      side:   $('b_side').value,
+      mr:     $('b_mr').value,
+      weight: $('b_weight').value,
+      gst:    parseFloat($('b_gst').value) || 0,
+      mramt:  parseFloat($('b_mramt').value) || 0,
+      total:  parseFloat($('b_total').value) || 0,
+      pmode:  $('b_pmode').value,
+      remark: $('b_remark').value,
+    };
+  }
+
+  try {
+    await api('/api/mr/entries', {
+      method: 'POST',
+      body: JSON.stringify({ ...baseData, ...specificData }),
+    });
+    await loadAll();
+    toast(isUpdate ? "✅ Entry Updated" : "✅ Entry Saved");
+    closeBook();
+    renderDashboard();
+  } catch (e) {
+    toast('❌ ' + e.message);
+  }
+}
+
+/* ===== TRANSACTIONS / LOGS ===== */
+function renderLogs() {
+  const tFilter = $('filterTrain').value.toLowerCase();
+  const fDate   = $('filterFrom').value;
+  const tDate   = $('filterTo').value;
+
+  const filtered = entries.filter(e => {
+    if (tFilter && !e.train_no.toLowerCase().includes(tFilter) && !(trains.find(t=>t.no===e.train_no)?.name||'').toLowerCase().includes(tFilter)) return false;
+    if (fDate && e.date < fDate) return false;
+    if (tDate && e.date > tDate) return false;
+    return true;
+  }).sort((a, b) => b.date.localeCompare(a.date));
+
+  // Mega-table: every field for both Online + Offline modes shown side-by-side
+  $('logHeader').innerHTML = `
+    <tr>
+      <th>Mode</th>
+      <th>Date</th>
+      <th>Train No</th>
+      <th>Train Name</th>
+      <th>Contract</th>
+      <th>Space</th>
+      <th class="num">Penalty</th>
+      <th>Issue Date</th>
+      <!-- Online-only fields -->
+      <th class="grp-online">Invoice</th>
+      <th class="grp-online">Service Date</th>
+      <th class="grp-online num">Taxable</th>
+      <th class="grp-online num">CGST</th>
+      <th class="grp-online num">SGST</th>
+      <th class="grp-online num">IGST</th>
+      <th class="grp-online num">Total Supply</th>
+      <!-- Offline-only fields -->
+      <th class="grp-offline">MR No</th>
+      <th class="grp-offline">SLR Side</th>
+      <th class="grp-offline">Weight</th>
+      <th class="grp-offline num">GST</th>
+      <th class="grp-offline num">MR Amount</th>
+      <th class="grp-offline num">Total</th>
+      <th class="grp-offline">Pay Mode</th>
+      <th class="grp-offline">Remark</th>
+      <th style="text-align:center; min-width:90px;">Actions</th>
+    </tr>
+  `;
+
+  if (filtered.length === 0) {
+    $('logBody').innerHTML = '';
+    $('logEmpty').classList.remove('hidden');
+    return;
+  }
+  $('logEmpty').classList.add('hidden');
+
+  const dash = '<span class="dim">—</span>';
+  const fmtDate = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'2-digit'}) : dash;
+  const cell    = v => (v === null || v === undefined || v === '') ? dash : v;
+  const num     = v => (v && Number(v) !== 0) ? '₹' + fmt(v) : dash;
+
+  $('logBody').innerHTML = filtered.map(e => {
+    const trainName = trains.find(t => t.no === e.train_no)?.name || '';
+    const isOnline  = e.mode === 'online';
+    return `
+      <tr class="tx-row ${isOnline ? 'online-row' : 'offline-row'}">
+        <td><span class="mode-badge ${isOnline ? 'mode-online' : 'mode-offline'}">${e.mode.toUpperCase()}</span></td>
+        <td><strong>${fmtDate(e.date)}</strong></td>
+        <td><strong>${e.train_no}</strong></td>
+        <td>${cell(trainName)}</td>
+        <td>${cell(e.contract)}</td>
+        <td>${e.space ? e.space + ' T' : dash}</td>
+        <td class="num">${e.penalty > 0 ? '<span style="color:#f87171;font-weight:700;">₹' + fmt(e.penalty) + '</span>' : dash}</td>
+        <td>${fmtDate(e.issue_date)}</td>
+
+        <td class="grp-online-edge">${isOnline ? cell(e.invoice) : dash}</td>
+        <td>${isOnline ? fmtDate(e.service_date) : dash}</td>
+        <td class="num">${isOnline ? num(e.taxable) : dash}</td>
+        <td class="num">${isOnline ? num(e.cgst) : dash}</td>
+        <td class="num">${isOnline ? num(e.sgst) : dash}</td>
+        <td class="num">${isOnline ? num(e.igst) : dash}</td>
+        <td class="num"><strong>${isOnline ? num(e.total_value_supply) : dash}</strong></td>
+
+        <td class="grp-offline-edge">${!isOnline ? cell(e.mr) : dash}</td>
+        <td>${!isOnline ? cell(e.side) : dash}</td>
+        <td>${!isOnline ? cell(e.weight) : dash}</td>
+        <td class="num">${!isOnline ? num(e.gst) : dash}</td>
+        <td class="num">${!isOnline ? num(e.mramt) : dash}</td>
+        <td class="num"><strong>${!isOnline ? num(e.total) : dash}</strong></td>
+        <td>${!isOnline ? cell(e.pmode) : dash}</td>
+        <td>${!isOnline ? cell(e.remark) : dash}</td>
+
+        <td style="text-align:center;">
+          <div style="display:flex; justify-content:center; gap:6px;">
+            <button class="action-btn edit" onclick="openBook('${e.train_no}','${e.date}','${e.id}')" title="Edit">✏️</button>
+            <button class="action-btn del"  onclick="deleteEntry('${e.id}')" title="Delete">🗑️</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function deleteEntry(id) {
+  if (!confirm("Delete this entry? This cannot be undone.")) return;
+  try {
+    await api(`/api/mr/entries/${id}`, { method: 'DELETE' });
+    await loadAll();
+    renderLogs();
+    renderDashboard();
+    toast("🗑️ Entry deleted");
+  } catch (e) {
+    toast('❌ ' + e.message);
+  }
+}
+
+function clearFilters() {
+  $('filterTrain').value = '';
+  $('filterFrom').value  = '';
+  $('filterTo').value    = '';
+  renderLogs();
+}
+
+/* ===== REPORTS ===== */
+function renderReports() {
+  const sections = trains.map(t => {
+    const tEnts = entries.filter(e => e.train_no === t.no).sort((a,b) => b.date.localeCompare(a.date));
+    const isOnline = t.mode === 'online';
+
+    const totRevenue = tEnts.reduce((s,e) => s + (e.total_value_supply || e.total || 0), 0);
+    const totPenalty = tEnts.reduce((s,e) => s + (e.penalty || 0), 0);
+
+    const onlineCols = `
+      <th>Invoice No</th><th>Service Date</th>
+      <th style="text-align:right;">Taxable (₹)</th>
+      <th style="text-align:right;">CGST (₹)</th>
+      <th style="text-align:right;">SGST (₹)</th>
+      <th style="text-align:right;">IGST (₹)</th>
+    `;
+    const offlineCols = `
+      <th>MR No</th><th>SLR Side</th><th>Weight</th>
+      <th style="text-align:right;">GST (₹)</th>
+      <th style="text-align:right;">MR Amount (₹)</th>
+      <th>Pay Mode</th><th>Remark</th>
+    `;
+
+    const rows = tEnts.length === 0
+      ? `<tr><td colspan="20" style="text-align:center; padding:24px; color:var(--text-muted); font-style:italic;">No entries recorded for this train</td></tr>`
+      : tEnts.map((e, i) => {
+          const specificCells = isOnline ? `
+            <td style="font-family:monospace; font-size:0.8rem;">${e.invoice || '—'}</td>
+            <td>${e.service_date ? new Date(e.service_date+'T00:00:00').toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—'}</td>
+            <td style="text-align:right; font-family:'Outfit',monospace;">₹${fmt(e.taxable)}</td>
+            <td style="text-align:right; font-family:'Outfit',monospace;">₹${fmt(e.cgst)}</td>
+            <td style="text-align:right; font-family:'Outfit',monospace;">₹${fmt(e.sgst)}</td>
+            <td style="text-align:right; font-family:'Outfit',monospace;">₹${fmt(e.igst)}</td>
+          ` : `
+            <td style="font-family:monospace; font-size:0.8rem;">${e.mr || '—'}</td>
+            <td><span style="padding:2px 8px;border-radius:5px;font-size:0.65rem;font-weight:800;background:var(--badge-offline-bg);color:var(--badge-offline-color);">${e.side || '—'}</span></td>
+            <td>${e.weight || '—'}</td>
+            <td style="text-align:right; font-family:'Outfit',monospace;">₹${fmt(e.gst)}</td>
+            <td style="text-align:right; font-family:'Outfit',monospace;">₹${fmt(e.mramt)}</td>
+            <td><span style="padding:2px 8px;border-radius:5px;font-size:0.65rem;font-weight:700;background:var(--btn-secondary-bg);color:var(--text-secondary);border:1px solid var(--border-light);">${e.pmode || '—'}</span></td>
+            <td style="color:var(--text-muted); font-size:0.8rem;">${e.remark || '—'}</td>
+          `;
+          return `
+            <tr style="background:${i%2===1 ? 'var(--row-stripe)' : 'transparent'}; border-bottom:1px solid var(--border-mid);">
+              <td style="color:var(--text-muted); font-size:0.78rem; font-weight:600;">${i+1}</td>
+              <td style="font-weight:700; color:var(--text-primary); white-space:nowrap;">${new Date(e.date+'T00:00:00').toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}</td>
+              <td style="font-size:0.75rem; font-family:monospace; color:var(--text-muted);">${e.issue_date ? new Date(e.issue_date+'T00:00:00').toLocaleDateString('en-IN',{day:'2-digit',month:'short'}) : '—'}</td>
+              <td style="font-family:monospace; font-size:0.8rem; color:var(--text-secondary);">${e.contract || '—'}</td>
+              <td style="text-align:center;"><span style="padding:2px 8px;border-radius:5px;font-size:0.65rem;font-weight:800;background:var(--badge-online-bg);color:var(--badge-online-color);">${e.space || '—'}</span></td>
+              ${specificCells}
+              <td style="text-align:right; font-weight:800; font-family:'Outfit',monospace; color:var(--accent); font-size:0.9rem;">₹${fmt(e.total_value_supply || e.total)}</td>
+              <td style="text-align:right; font-family:'Outfit',monospace; color:${e.penalty > 0 ? '#f87171' : 'var(--text-muted)'}; font-size:0.82rem;">${e.penalty > 0 ? '₹'+fmt(e.penalty) : '—'}</td>
+            </tr>
+          `;
+        }).join('');
+
+    const totalCols = isOnline
+      ? `<td></td><td></td>
+         <td style="text-align:right; font-weight:800; color:var(--text-primary);">₹${fmt(tEnts.reduce((s,e)=>s+(+e.taxable||0),0))}</td>
+         <td style="text-align:right; font-weight:800; color:var(--text-primary);">₹${fmt(tEnts.reduce((s,e)=>s+(+e.cgst||0),0))}</td>
+         <td style="text-align:right; font-weight:800; color:var(--text-primary);">₹${fmt(tEnts.reduce((s,e)=>s+(+e.sgst||0),0))}</td>
+         <td style="text-align:right; font-weight:800; color:var(--text-primary);">₹${fmt(tEnts.reduce((s,e)=>s+(+e.igst||0),0))}</td>`
+      : `<td></td><td></td><td></td>
+         <td style="text-align:right; font-weight:800; color:var(--text-primary);">₹${fmt(tEnts.reduce((s,e)=>s+(+e.gst||0),0))}</td>
+         <td style="text-align:right; font-weight:800; color:var(--text-primary);">₹${fmt(tEnts.reduce((s,e)=>s+(+e.mramt||0),0))}</td>
+         <td></td><td></td>`;
+
+    return `
+      <div style="margin-bottom:40px;">
+        <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px;">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <span style="font-size:1.3rem; font-weight:800; color:var(--text-primary);">${t.name}</span>
+            <span style="font-size:0.78rem; font-weight:700; color:var(--text-muted); font-family:monospace;">${t.no}</span>
+            <span class="pill ${isOnline ? 'pill-done' : 'pill-pending'}">${t.mode.toUpperCase()}</span>
+          </div>
+          <div style="display:flex; gap:20px; align-items:center;">
+            <div style="text-align:right;">
+              <div style="font-size:0.6rem; font-weight:800; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted);">Entries</div>
+              <div style="font-size:1.1rem; font-weight:800; color:var(--text-primary);">${tEnts.length}</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:0.6rem; font-weight:800; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted);">Total Revenue</div>
+              <div style="font-size:1.1rem; font-weight:800; color:var(--accent);">₹ ${fmt(totRevenue)}</div>
+            </div>
+            ${totPenalty > 0 ? `<div style="text-align:right;">
+              <div style="font-size:0.6rem; font-weight:800; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted);">Total Penalty</div>
+              <div style="font-size:1.1rem; font-weight:800; color:#f87171;">₹ ${fmt(totPenalty)}</div>
+            </div>` : ''}
+          </div>
+        </div>
+
+        <div style="background:var(--card-bg); border:1px solid var(--border-light); border-radius:14px; overflow:hidden; box-shadow:var(--shadow-sm);">
+          <div style="overflow-x:auto;">
+            <table style="width:100%; border-collapse:collapse; font-size:0.82rem;">
+              <thead>
+                <tr style="background:var(--bg-main); border-bottom:2px solid var(--border-light);">
+                  <th style="padding:11px 12px; text-align:left; font-size:0.6rem; font-weight:800; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted); white-space:nowrap;">#</th>
+                  <th style="padding:11px 12px; text-align:left; font-size:0.6rem; font-weight:800; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted); white-space:nowrap;">Entry Date</th>
+                  <th style="padding:11px 12px; text-align:left; font-size:0.6rem; font-weight:800; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted); white-space:nowrap;">Issue Date</th>
+                  <th style="padding:11px 12px; text-align:left; font-size:0.6rem; font-weight:800; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted); white-space:nowrap;">Contract</th>
+                  <th style="padding:11px 12px; text-align:left; font-size:0.6rem; font-weight:800; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted); white-space:nowrap;">Space</th>
+                  ${isOnline ? onlineCols : offlineCols}
+                  <th style="padding:11px 12px; text-align:right; font-size:0.6rem; font-weight:800; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted); white-space:nowrap;">Total (₹)</th>
+                  <th style="padding:11px 12px; text-align:right; font-size:0.6rem; font-weight:800; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted); white-space:nowrap;">Penalty (₹)</th>
+                </tr>
+              </thead>
+              <tbody style="color:var(--text-primary);">${rows}</tbody>
+              ${tEnts.length > 0 ? `
+              <tfoot>
+                <tr style="background:var(--bg-main); border-top:2px solid var(--border-light);">
+                  <td colspan="4" style="padding:10px 12px; font-size:0.72rem; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted);">TOTALS — ${tEnts.length} entries</td>
+                  <td></td>
+                  ${totalCols}
+                  <td style="text-align:right; font-weight:800; font-size:0.95rem; color:var(--accent); padding:10px 12px;">₹${fmt(totRevenue)}</td>
+                  <td style="text-align:right; font-weight:800; font-size:0.88rem; color:#f87171; padding:10px 12px;">${totPenalty > 0 ? '₹'+fmt(totPenalty) : '—'}</td>
+                </tr>
+              </tfoot>` : ''}
+            </table>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  $('reportsContainer').innerHTML = sections || '<p style="text-align:center; padding:3rem; color:var(--text-muted);">No trains configured.</p>';
+}
+
+/* ===== MASTERS ===== */
+function renderMasters() {
+  $('masterTrainCards').innerHTML = trains.map(t => `
+    <div class="master-card">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
+        <div>
+          <div style="font-size:1.2rem; font-weight:800; color:var(--text-primary);">${t.name}</div>
+          <div style="font-size:0.72rem; color:var(--text-muted); font-weight:600; margin-top:2px;">${t.no}</div>
+        </div>
+        <span class="pill ${t.mode === 'online' ? 'pill-done' : 'pill-pending'}">${t.mode.toUpperCase()}</span>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:14px;">
+        <div>
+          <div style="font-size:0.62rem; text-transform:uppercase; font-weight:800; color:var(--text-muted); margin-bottom:3px;">Contract</div>
+          <div style="font-size:0.85rem; font-weight:600; color:var(--text-primary); font-family:monospace;">${t.contract}</div>
+        </div>
+        <div>
+          <div style="font-size:0.62rem; text-transform:uppercase; font-weight:800; color:var(--text-muted); margin-bottom:3px;">Std. Total</div>
+          <div style="font-size:0.85rem; font-weight:700; color:var(--accent);">₹${fmt(t.fixed.total_supply || t.fixed.total)}</div>
+        </div>
+      </div>
+      <div style="margin-top:14px; padding-top:12px; border-top:1px solid var(--border-mid);">
+        <button onclick="deleteTrain('${t.no}')" class="btn btn-secondary" style="font-size:0.78rem; padding:5px 12px; color:#ef4444; border-color:#fca5a5;">🗑️ Remove</button>
+      </div>
+    </div>
+  `).join('') || '<p style="grid-column: 1/-1; text-align:center; padding:3rem; color:var(--text-muted);">No trains yet. Use the form to register one.</p>';
+}
+
+$('trainForm').onsubmit = async (e) => {
+  e.preventDefault();
+  const payload = {
+    no:       $('m_no').value.trim(),
+    name:     $('m_name').value.trim(),
+    mode:     $('m_mode').value,
+    contract: $('m_contract').value.trim(),
+  };
+  try {
+    await api('/api/mr/trains', { method: 'POST', body: JSON.stringify(payload) });
+    await loadAll();
+    renderMasters();
+    $('trainForm').reset();
+    toast("✅ New Train Added");
+  } catch (err) {
+    toast('❌ ' + err.message);
+  }
+};
+
+async function deleteTrain(no) {
+  if (!confirm(`Remove Train ${no}? Existing entries will be kept.`)) return;
+  try {
+    await api(`/api/mr/trains/${encodeURIComponent(no)}`, { method: 'DELETE' });
+    await loadAll();
+    renderMasters();
+    toast("🗑️ Train removed");
+  } catch (err) {
+    toast('❌ ' + err.message);
+  }
+}
+
+/* ===== EXCEL EXPORT ===== */
+function exportExcel() {
+  const list = entries.map(e => ({
+    'Date':          e.date,
+    'Train No':      e.train_no,
+    'Mode':          e.mode,
+    'Contract':      e.contract,
+    'Space':         e.space,
+    'Penalty':       e.penalty,
+    'MR / Invoice':  e.mode === 'online' ? e.invoice : e.mr,
+    'Taxable / MR Amt': e.taxable || e.mramt,
+    'GST':           e.mode === 'online' ? ((+e.cgst||0) + (+e.sgst||0) + (+e.igst||0)) : e.gst,
+    'Total':         e.total_value_supply || e.total,
+    'Remark':        e.remark || ''
+  }));
+  const ws = XLSX.utils.json_to_sheet(list);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "SRPS_Logs");
+  XLSX.writeFile(wb, `SRPS_Log_Export_${todayISO()}.xlsx`);
+}
+
+/* ===== BACKUP ===== */
+function showBackup() {
+  const blob = new Blob([JSON.stringify({ entries, trains })], { type: 'application/json' });
+  const a    = document.createElement('a');
+  a.href     = URL.createObjectURL(blob);
+  a.download = `SRPS_Backup_${todayISO()}.json`;
+  a.click();
+}
+
+/* ===== INIT ===== */
+(async function init() {
+  await loadAll();
+  switchTab('home');
+})();
+</script>
+</body>
+</html>

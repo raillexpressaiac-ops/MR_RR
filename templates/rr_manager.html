@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SRPS Cargo — RR Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+:root {
+  --blue: #1b9ce3; --blue-dark: #1488cc; --blue-light: #e8f4fc; --blue-mid: #d0eaf9;
+  --bg: #eef2f7; --surface: #ffffff; --surface-2: #f7f9fc;
+  --border: #e2e8f0; --border-2: #d1dce9;
+  --ink: #1a2332; --ink-2: #3d5166; --muted: #7a90a8;
+  --success: #16a34a; --danger: #dc2626; --warning: #d97706;
+  --purple: #7c3aed; --green: #16a34a;
+  --radius: 14px; --radius-sm: 10px;
+  --shadow: 0 1px 3px rgba(0,0,0,.07), 0 4px 12px rgba(0,0,0,.05);
+  --shadow-md: 0 2px 8px rgba(0,0,0,.08), 0 8px 24px rgba(0,0,0,.06);
+  --shadow-lg: 0 4px 16px rgba(0,0,0,.1), 0 16px 40px rgba(0,0,0,.08);
+  --font: 'DM Sans', sans-serif; --font-mono: 'DM Mono', monospace;
+}
+[data-theme="dark"] {
+  --bg: #0f1621; --surface: #1a2332; --surface-2: #1e2a3a;
+  --border: #253042; --border-2: #2e3d52;
+  --ink: #e8edf5; --ink-2: #a8b9ce; --muted: #6a7f96;
+  --blue-light: #1a2d42; --blue-mid: #1e3550;
+  --shadow: 0 1px 3px rgba(0,0,0,.3), 0 4px 12px rgba(0,0,0,.2);
+  --shadow-md: 0 2px 8px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.2);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: var(--font); background: var(--bg); color: var(--ink);
+  min-height: 100vh; font-size: 14px; line-height: 1.5;
+  transition: background .3s, color .3s;
+}
+
+nav { background: var(--surface); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 40; box-shadow: var(--shadow); }
+.nav-inner { max-width: 1400px; margin: 0 auto; padding: 0 28px; display: flex; align-items: center; gap: 0; height: 64px; }
+.brand { display: flex; align-items: center; gap: 12px; margin-right: 48px; flex-shrink: 0; }
+.brand-logo { width: 40px; height: 40px; background: var(--blue); border-radius: 10px; display: grid; place-items: center; flex-shrink: 0; }
+.brand-logo svg { width: 22px; height: 22px; color: white; }
+.brand-text { line-height: 1.2; }
+.brand-text h1 { font-size: 16px; font-weight: 700; color: var(--ink); letter-spacing: -.01em; }
+.brand-text p { font-size: 10px; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; font-weight: 500; }
+.nav-tabs { display: flex; align-items: stretch; gap: 0; flex: 1; height: 100%; }
+.nav-tab { display: flex; align-items: center; gap: 7px; padding: 0 18px; font-size: 14px; font-weight: 500; color: var(--muted); cursor: pointer; border: none; background: none; border-bottom: 2px solid transparent; transition: color .2s, border-color .2s; white-space: nowrap; font-family: var(--font); height: 100%; }
+.nav-tab:hover { color: var(--blue); }
+.nav-tab.active { color: var(--blue); border-bottom-color: var(--blue); font-weight: 600; }
+.nav-tab svg { width: 15px; height: 15px; }
+.nav-right { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+
+.btn { font-family: var(--font); font-weight: 500; font-size: 13px; padding: 8px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border); cursor: pointer; display: inline-flex; align-items: center; gap: 7px; background: var(--surface); color: var(--ink-2); transition: all .15s ease; white-space: nowrap; }
+.btn:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-light); }
+.btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+.btn-primary { background: var(--blue); color: white; border-color: var(--blue); font-weight: 600; }
+.btn-primary:hover { background: var(--blue-dark); border-color: var(--blue-dark); color: white; }
+.btn-danger { background: var(--danger); color: white; border-color: var(--danger); }
+.btn-danger:hover { background: #b91c1c; border-color: #b91c1c; color: white; }
+.btn-ghost { background: transparent; border-color: transparent; color: var(--muted); }
+.btn-ghost:hover { background: var(--bg); border-color: var(--border); color: var(--ink); }
+.btn-icon { width: 36px; height: 36px; padding: 0; justify-content: center; border-radius: 8px; }
+.btn-sm { padding: 6px 12px; font-size: 12px; }
+
+.shell { max-width: 1400px; margin: 0 auto; padding: 28px 28px 60px; }
+.page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+.page-title { font-size: 24px; font-weight: 700; letter-spacing: -.02em; }
+.page-subtitle { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+.card { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow); padding: 22px; }
+
+.trains-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; margin-bottom: 28px; }
+.train-card { background: var(--surface); border-radius: var(--radius); border: 1.5px solid var(--border); padding: 18px 20px; cursor: pointer; transition: all .2s ease; position: relative; overflow: hidden; }
+.train-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--blue); opacity: 0; transition: opacity .2s; }
+.train-card:hover { border-color: var(--blue); box-shadow: var(--shadow-md); transform: translateY(-2px); }
+.train-card:hover::before { opacity: 1; }
+.train-card.active { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-mid); }
+.train-card.active::before { opacity: 1; }
+.train-card .tc-num { font-size: 10px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.train-card .tc-name { font-size: 20px; font-weight: 700; margin: 6px 0 8px; color: var(--ink); letter-spacing: -.01em; }
+.train-card .tc-rate { font-size: 12px; color: var(--ink-2); display: inline-flex; align-items: center; gap: 4px; background: var(--bg); padding: 3px 9px; border-radius: 20px; font-family: var(--font-mono); }
+.train-card .tc-rate strong { color: var(--blue); }
+.train-card .tc-badge { position: absolute; top: 14px; right: 14px; background: var(--blue); color: white; font-size: 10px; font-weight: 700; min-width: 22px; height: 22px; border-radius: 11px; padding: 0 6px; display: grid; place-items: center; font-family: var(--font-mono); }
+.add-train-card { border: 1.5px dashed var(--border-2); background: transparent; display: grid; place-items: center; min-height: 110px; color: var(--muted); font-weight: 500; font-size: 13px; text-align: center; gap: 8px; }
+.add-train-card svg { width: 24px; height: 24px; }
+.add-train-card:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-light); }
+
+.stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-bottom: 20px; }
+.stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; display: flex; flex-direction: column; gap: 4px; position: relative; overflow: hidden; }
+.stat-card .s-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.stat-card .s-val { font-size: 22px; font-weight: 700; color: var(--ink); font-family: var(--font-mono); }
+.stat-card .s-val.accent { color: var(--blue); }
+
+.panel { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow); }
+.panel-head { padding: 18px 22px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.panel-head-left { display: flex; align-items: center; gap: 12px; }
+.panel-title { font-size: 18px; font-weight: 700; letter-spacing: -.01em; }
+.panel-badge { background: var(--blue-light); color: var(--blue); font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 20px; font-family: var(--font-mono); }
+.panel-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.panel-body { padding: 22px; }
+
+.form-wrap { display: none; background: var(--surface-2); border-bottom: 1px solid var(--border); padding: 22px; animation: slideDown .25s ease; }
+.form-wrap.open { display: block; }
+@keyframes slideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+.form-section-title { font-size: 13px; font-weight: 600; color: var(--ink-2); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+.form-section-title::before { content: ''; width: 4px; height: 16px; background: var(--blue); border-radius: 2px; display: block; }
+.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 14px; }
+.field label { display: block; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+.field input { width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); font-family: var(--font); font-size: 14px; transition: border-color .2s, box-shadow .2s; }
+.field input:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(27,156,227,.12); }
+.field input[readonly] { background: var(--bg); color: var(--muted); cursor: not-allowed; }
+.field.computed input { background: var(--blue-light); color: var(--blue); font-family: var(--font-mono); font-weight: 600; border-color: var(--blue-mid); }
+.form-actions { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; }
+
+.search-wrap { padding: 16px 22px; border-bottom: 1px solid var(--border); }
+.search-inner { position: relative; max-width: 400px; }
+.search-inner input { width: 100%; padding: 9px 14px 9px 38px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 13px; }
+.search-inner input:focus { outline: none; border-color: var(--blue); background: var(--surface); box-shadow: 0 0 0 3px rgba(27,156,227,.1); }
+.search-inner svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: var(--muted); }
+
+.table-outer { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; min-width: 860px; }
+thead { background: var(--surface-2); }
+th { text-align: left; padding: 11px 14px; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--border); white-space: nowrap; }
+td { padding: 11px 14px; border-bottom: 1px solid var(--border); color: var(--ink-2); white-space: nowrap; font-size: 13px; }
+td.mono { font-family: var(--font-mono); }
+td.total-cell { color: var(--blue); font-weight: 700; font-family: var(--font-mono); }
+tbody tr:hover { background: var(--surface-2); }
+tbody tr:last-child td { border-bottom: none; }
+
+.row-actions { display: flex; gap: 5px; }
+.icon-btn { width: 28px; height: 28px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); color: var(--muted); cursor: pointer; display: grid; place-items: center; transition: all .15s; }
+.icon-btn svg { width: 13px; height: 13px; }
+.icon-btn.edit:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-light); }
+.icon-btn.del:hover { border-color: var(--danger); color: var(--danger); background: #fef2f2; }
+
+.empty-state { padding: 60px 20px; text-align: center; color: var(--muted); }
+.empty-state svg { width: 44px; height: 44px; margin-bottom: 14px; opacity: .4; }
+.empty-state h3 { font-size: 17px; font-weight: 600; color: var(--ink-2); margin-bottom: 4px; }
+.empty-state p { font-size: 13px; }
+
+.welcome-panel { text-align: center; padding: 60px 20px; }
+.welcome-panel h2 { font-size: 26px; font-weight: 700; letter-spacing: -.02em; margin-bottom: 10px; }
+.welcome-panel h2 span { color: var(--blue); }
+.welcome-panel p { color: var(--muted); font-size: 14px; max-width: 420px; margin: 0 auto; }
+
+.modal-bg { position: fixed; inset: 0; background: rgba(10,20,40,.45); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 80; padding: 20px; }
+.modal-bg.open { display: flex; }
+.modal { background: var(--surface); border-radius: var(--radius); padding: 28px; max-width: 480px; width: 100%; max-height: 90vh; overflow: auto; box-shadow: var(--shadow-lg); border: 1px solid var(--border); animation: popIn .2s ease; }
+@keyframes popIn { from { opacity: 0; transform: scale(.95) translateY(6px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+.modal h2 { font-size: 20px; font-weight: 700; margin-bottom: 6px; letter-spacing: -.01em; }
+.modal p { color: var(--muted); font-size: 14px; margin-bottom: 20px; }
+.modal .form-actions { margin-top: 14px; padding-top: 0; border-top: none; }
+
+.toast { position: fixed; bottom: 24px; right: 24px; background: var(--ink); color: white; padding: 11px 18px; border-radius: 10px; font-size: 13px; font-weight: 500; box-shadow: var(--shadow-lg); transform: translateY(80px); opacity: 0; transition: all .3s cubic-bezier(.34,1.56,.64,1); z-index: 100; display: flex; align-items: center; gap: 10px; }
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast.success { background: var(--success); }
+.toast.error { background: var(--danger); }
+
+.autocomplete-wrap { position: relative; }
+.autocomplete-dropdown { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: var(--surface); border: 1px solid var(--blue); border-radius: var(--radius-sm); box-shadow: var(--shadow-md); z-index: 200; max-height: 220px; overflow-y: auto; display: none; }
+.autocomplete-dropdown.open { display: block; }
+.ac-item { padding: 10px 14px; cursor: pointer; font-size: 13px; color: var(--ink-2); display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border); transition: background .12s; }
+.ac-item:last-child { border-bottom: none; }
+.ac-item:hover, .ac-item.highlighted { background: var(--blue-light); color: var(--blue); }
+.ac-item .ac-name { font-weight: 600; }
+.ac-item .ac-rate { font-size: 11px; color: var(--muted); font-family: var(--font-mono); margin-left: auto; }
+.ac-no-results { padding: 12px 14px; font-size: 13px; color: var(--muted); text-align: center; }
+
+.section-label { font-size: 12px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+
+.report-table { width: 100%; border-collapse: collapse; }
+.report-table th { padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); border-bottom: 1px solid var(--border); }
+.report-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 13px; }
+.report-table .mono { font-family: var(--font-mono); }
+.report-table .tot { color: var(--blue); font-weight: 700; }
+.report-table tfoot td { background: var(--bg); font-weight: 700; }
+
+.system-switch { display: inline-flex; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 3px; font-size: 12px; }
+.system-switch a { padding: 5px 12px; border-radius: 6px; font-weight: 600; color: var(--muted); text-decoration: none; }
+.system-switch a.active { background: var(--blue); color: #fff; }
+
+@media (max-width: 640px) {
+  .shell { padding: 16px 14px 40px; }
+  .nav-inner { padding: 0 14px; }
+  .nav-tab span { display: none; }
+  .brand-text { display: none; }
+  .trains-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .panel-head { padding: 14px 16px; }
+  .panel-body { padding: 16px; }
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <div class="brand">
+      <div class="brand-logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="4" y="3" width="16" height="16" rx="2"/>
+          <path d="M4 11h16M12 3v8"/>
+          <circle cx="8" cy="18" r="1.5"/><circle cx="16" cy="18" r="1.5"/>
+        </svg>
+      </div>
+      <div class="brand-text"><h1>SRPS Cargo</h1><p>RR Manager</p></div>
+    </div>
+    <div class="nav-tabs">
+      <button class="nav-tab active" data-view="dashboard" onclick="switchView('dashboard')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        <span>Dashboard</span>
+      </button>
+      <button class="nav-tab" data-view="entries" onclick="switchView('entries')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        <span>Entries</span>
+      </button>
+      <button class="nav-tab" data-view="reports" onclick="switchView('reports')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        <span>Reports</span>
+      </button>
+    </div>
+    <div class="nav-right">
+      <div class="system-switch">
+        <a href="/mr">MR</a>
+        <a href="/rr" class="active">RR</a>
+      </div>
+      <button class="btn btn-ghost btn-icon" id="themeBtn" title="Toggle theme">
+        <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+        </svg>
+      </button>
+      <button class="btn btn-primary" onclick="openAddTrainModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        + Add Train
+      </button>
+    </div>
+  </div>
+</nav>
+
+<div class="shell">
+  <!-- DASHBOARD -->
+  <div id="view-dashboard">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Dashboard</div>
+        <div class="page-subtitle">Select a train to manage RR entries</div>
+      </div>
+    </div>
+    <div class="section-label">Trains</div>
+    <div class="trains-grid" id="trainGrid"></div>
+    <div id="mainPanel">
+      <div class="panel">
+        <div class="welcome-panel">
+          <svg width="64" height="64" viewBox="0 0 64 64" fill="none" style="margin: 0 auto 16px; display: block;">
+            <rect x="8" y="20" width="48" height="28" rx="6" fill="#1b9ce3" opacity=".12"/>
+            <rect x="8" y="20" width="48" height="28" rx="6" stroke="#1b9ce3" stroke-width="2"/>
+            <rect x="14" y="28" width="8" height="8" rx="2" fill="#1b9ce3" opacity=".5"/>
+            <rect x="28" y="28" width="8" height="8" rx="2" fill="#1b9ce3" opacity=".5"/>
+            <rect x="42" y="28" width="8" height="8" rx="2" fill="#1b9ce3" opacity=".5"/>
+            <circle cx="18" cy="52" r="4" fill="#1a2332" opacity=".3"/>
+            <circle cx="46" cy="52" r="4" fill="#1a2332" opacity=".3"/>
+          </svg>
+          <h2>Select a <span>train</span> to get started</h2>
+          <p style="margin-top:8px">Pick a train above to view entries, add new RRs, or manage records. All data saves to PostgreSQL.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ENTRIES -->
+  <div id="view-entries" style="display:none">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Entries</div>
+        <div class="page-subtitle">All RR entries across trains</div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn" onclick="exportAllExcel()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export Excel
+        </button>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="search-wrap" style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;padding:20px 22px;border-bottom:1px solid var(--border);">
+        <div style="flex:1;min-width:220px;max-width:380px;">
+          <label class="section-label" style="margin-bottom:6px;display:block;">Search Train</label>
+          <div class="autocomplete-wrap">
+            <div class="search-inner" style="max-width:none;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" id="allSearchTrain" placeholder="Train number or name…"
+                autocomplete="off"
+                oninput="onTrainSearchInput()"
+                onkeydown="onTrainSearchKey(event)"
+                onfocus="onTrainSearchInput()"
+              />
+            </div>
+            <div class="autocomplete-dropdown" id="trainDropdown"></div>
+          </div>
+        </div>
+        <div>
+          <label class="section-label" style="margin-bottom:6px;display:block;">From Date</label>
+          <input type="date" id="allFromDate"
+            style="padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--ink);font-family:var(--font);font-size:13px;"
+            onkeydown="if(event.key==='Enter')doSearch()"/>
+        </div>
+        <div>
+          <label class="section-label" style="margin-bottom:6px;display:block;">To Date</label>
+          <input type="date" id="allToDate"
+            style="padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--ink);font-family:var(--font);font-size:13px;"
+            onkeydown="if(event.key==='Enter')doSearch()"/>
+        </div>
+        <button class="btn btn-primary" onclick="doSearch()" style="height:38px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          Search
+        </button>
+        <button class="btn" onclick="clearAllFilters()" style="height:38px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          Clear Filters
+        </button>
+      </div>
+      <div class="table-outer" id="allEntriesTable">
+        <div class="empty-state">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <h3>Use filters above to search</h3>
+          <p>Enter a train name or select dates, then click Search.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- REPORTS -->
+  <div id="view-reports" style="display:none">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Reports</div>
+        <div class="page-subtitle">Summary across all trains</div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn" onclick="exportCombinedExcel()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Excel
+        </button>
+        <button class="btn btn-primary" onclick="exportCombinedPDF()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          PDF
+        </button>
+      </div>
+    </div>
+    <div class="panel" id="reportsPanel"></div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modal"><div class="modal" id="modalInner"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============ STATE (loaded from API) ============ */
+const LS_THEME = 'srps_rr_theme';
+let trains = [];
+let entries = {}; // { train_id: [entries...] }
+let activeTrain = null;
+let editingId = null;
+let currentView = 'dashboard';
+
+/* ============ API ============ */
+async function api(path, opts = {}) {
+  const res = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...opts });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || 'Request failed');
+  }
+  return res.json();
+}
+
+async function loadTrains() {
+  trains = await api('/api/rr/trains');
+}
+async function loadEntries() {
+  entries = await api('/api/rr/entries');
+}
+async function loadAll() {
+  try {
+    await Promise.all([loadTrains(), loadEntries()]);
+  } catch (e) {
+    showToast('⚠️ Failed to load: ' + e.message, 'error');
+  }
+}
+
+/* ============ UTILS ============ */
+function fmt(n) { return Number(n||0).toLocaleString('en-IN', { maximumFractionDigits: 2 }); }
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ============ VIEW SWITCHING ============ */
+function switchView(v) {
+  currentView = v;
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.dataset.view === v));
+  document.getElementById('view-dashboard').style.display = v === 'dashboard' ? '' : 'none';
+  document.getElementById('view-entries').style.display = v === 'entries' ? '' : 'none';
+  document.getElementById('view-reports').style.display = v === 'reports' ? '' : 'none';
+  if (v === 'reports') renderReports();
+}
+
+/* ============ THEME ============ */
+const themeBtn = document.getElementById('themeBtn');
+const themeIcon = document.getElementById('themeIcon');
+function applyTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  themeIcon.innerHTML = t === 'dark'
+    ? '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>'
+    : '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>';
+  localStorage.setItem(LS_THEME, t);
+}
+applyTheme(localStorage.getItem(LS_THEME) || 'light');
+themeBtn.addEventListener('click', () => applyTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'));
+
+/* ============ TOAST ============ */
+const toast = document.getElementById('toast');
+let toastT;
+function showToast(msg, type='success') {
+  clearTimeout(toastT);
+  toast.className = 'toast ' + type;
+  toast.textContent = msg;
+  requestAnimationFrame(() => toast.classList.add('show'));
+  toastT = setTimeout(() => toast.classList.remove('show'), 2400);
+}
+
+/* ============ MODAL ============ */
+const modalBg = document.getElementById('modal');
+const modalInner = document.getElementById('modalInner');
+function openModal(html) { modalInner.innerHTML = html; modalBg.classList.add('open'); }
+function closeModal() { modalBg.classList.remove('open'); modalInner.innerHTML = ''; }
+modalBg.addEventListener('click', e => { if (e.target === modalBg) closeModal(); });
+
+/* ============ TRAIN GRID ============ */
+const trainGrid = document.getElementById('trainGrid');
+function renderTrains() {
+  trainGrid.innerHTML = '';
+  trains.forEach((t, i) => {
+    const count = (entries[t.id] || []).length;
+    const card = document.createElement('div');
+    card.className = 'train-card' + (activeTrain === t.id ? ' active' : '');
+    card.innerHTML = `
+      <div class="tc-num">Train ${String(i+1).padStart(2,'0')}</div>
+      <div class="tc-name">${esc(t.name)}</div>
+      <div class="tc-rate">₹<strong>${t.rate}</strong> / bag</div>
+      ${count ? `<div class="tc-badge">${count}</div>` : ''}
+    `;
+    card.addEventListener('click', () => selectTrain(t.id));
+    trainGrid.appendChild(card);
+  });
+  const addCard = document.createElement('div');
+  addCard.className = 'train-card add-train-card';
+  addCard.innerHTML = `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    <span>Add New Train</span>`;
+  addCard.addEventListener('click', openAddTrainModal);
+  trainGrid.appendChild(addCard);
+}
+
+/* ============ MAIN PANEL ============ */
+const mainPanel = document.getElementById('mainPanel');
+function selectTrain(id) {
+  activeTrain = id;
+  editingId = null;
+  renderTrains();
+  renderPanel();
+  if (currentView !== 'dashboard') switchView('dashboard');
+}
+
+function renderPanel() {
+  if (!activeTrain) {
+    mainPanel.innerHTML = `<div class="panel"><div class="welcome-panel">
+      <svg width="64" height="64" viewBox="0 0 64 64" fill="none" style="margin:0 auto 16px;display:block;">
+        <rect x="8" y="20" width="48" height="28" rx="6" fill="#1b9ce3" opacity=".12"/>
+        <rect x="8" y="20" width="48" height="28" rx="6" stroke="#1b9ce3" stroke-width="2"/>
+      </svg>
+      <h2>Select a <span>train</span> to get started</h2>
+      <p style="margin-top:8px">Pick a train above to view entries, add new RRs, or manage records.</p>
+    </div></div>`;
+    return;
+  }
+  const train = trains.find(t => t.id === activeTrain);
+  if (!train) { activeTrain = null; return renderPanel(); }
+  const list = entries[train.id] || [];
+  const totals = list.reduce((a, e) => ({
+    bags: a.bags + (+e.bag||0),
+    weight: a.weight + (+e.weight||0),
+    rrAmt: a.rrAmt + (+e.rrAmt||0),
+    hamali: a.hamali + (+e.hamali||0),
+    total: a.total + (+e.total||0),
+  }), { bags:0, weight:0, rrAmt:0, hamali:0, total:0 });
+
+  mainPanel.innerHTML = `
+    <div class="stats-row">
+      <div class="stat-card"><div class="s-label">Entries</div><div class="s-val">${list.length}</div></div>
+      <div class="stat-card"><div class="s-label">Total Bags</div><div class="s-val">${fmt(totals.bags)}</div></div>
+      <div class="stat-card"><div class="s-label">Total Weight</div><div class="s-val">${fmt(totals.weight)}</div></div>
+      <div class="stat-card"><div class="s-label">RR Amount</div><div class="s-val">₹${fmt(totals.rrAmt)}</div></div>
+      <div class="stat-card"><div class="s-label">Hamali</div><div class="s-val">₹${fmt(totals.hamali)}</div></div>
+      <div class="stat-card"><div class="s-label">Grand Total</div><div class="s-val accent">₹${fmt(totals.total)}</div></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-head-left">
+          <div class="panel-title">${esc(train.name)}</div>
+          <div class="panel-badge">₹${train.rate} / bag</div>
+        </div>
+        <div class="panel-actions">
+          <button class="btn btn-primary" id="addEntryBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            New RR Entry
+          </button>
+          <button class="btn" id="exportXlsxBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Excel
+          </button>
+          <button class="btn" id="exportPdfBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            PDF
+          </button>
+          <button class="btn btn-ghost btn-icon" id="deleteTrainBtn" title="Delete train">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="form-wrap" id="formWrap"></div>
+      <div class="search-wrap">
+        <div class="search-inner">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="searchInput" placeholder="Search RR No, Consignor, Consignee…" />
+        </div>
+      </div>
+      <div id="tableContainer"></div>
+    </div>
+  `;
+
+  document.getElementById('addEntryBtn').addEventListener('click', () => openForm());
+  document.getElementById('exportXlsxBtn').addEventListener('click', () => exportExcel(train));
+  document.getElementById('exportPdfBtn').addEventListener('click', () => exportPDF(train));
+  document.getElementById('deleteTrainBtn').addEventListener('click', () => confirmDeleteTrain(train));
+  document.getElementById('searchInput').addEventListener('input', e => renderTable(train, e.target.value));
+  renderTable(train, '');
+}
+
+function renderTable(train, q) {
+  const container = document.getElementById('tableContainer');
+  let list = entries[train.id] || [];
+  if (q) {
+    const s = q.toLowerCase();
+    list = list.filter(e =>
+      (e.rrNo||'').toLowerCase().includes(s) ||
+      (e.consignor||'').toLowerCase().includes(s) ||
+      (e.consignee||'').toLowerCase().includes(s) ||
+      (e.to||'').toLowerCase().includes(s)
+    );
+  }
+  if (!list.length) {
+    container.innerHTML = `<div class="empty-state">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+      <h3>${q ? 'No matches found' : 'No entries yet'}</h3>
+      <p>${q ? 'Try a different search term.' : 'Click "New RR Entry" to add the first one.'}</p>
+    </div>`;
+    return;
+  }
+  container.innerHTML = `<div class="table-outer"><table>
+    <thead><tr>
+      <th>Date</th><th>RR No</th><th>From</th><th>Consignor</th>
+      <th>To</th><th>Consignee</th><th>Bag</th><th>GST</th>
+      <th>RR Amt</th><th>Weight</th><th>Rate</th><th>Hamali</th>
+      <th>Total</th><th></th>
+    </tr></thead>
+    <tbody>
+      ${list.map(e => `
+        <tr>
+          <td>${esc(e.date)}</td>
+          <td class="mono">${esc(e.rrNo)}</td>
+          <td>${esc(e.from)}</td>
+          <td>${esc(e.consignor)}</td>
+          <td>${esc(e.to)}</td>
+          <td>${esc(e.consignee)}</td>
+          <td class="mono">${esc(e.bag)}</td>
+          <td>${esc(e.gst)}</td>
+          <td class="mono">₹${fmt(e.rrAmt)}</td>
+          <td class="mono">${fmt(e.weight)}</td>
+          <td class="mono">₹${e.rate}</td>
+          <td class="mono">₹${fmt(e.hamali)}</td>
+          <td class="total-cell">₹${fmt(e.total)}</td>
+          <td>
+            <div class="row-actions">
+              <button class="icon-btn edit" data-id="${e.id}" data-act="edit" title="Edit">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4z"/></svg>
+              </button>
+              <button class="icon-btn del" data-id="${e.id}" data-act="del" title="Delete">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/></svg>
+              </button>
+            </div>
+          </td>
+        </tr>`).join('')}
+    </tbody>
+  </table></div>`;
+  container.querySelectorAll('.icon-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.id;
+      if (btn.dataset.act === 'edit') openForm(id);
+      else confirmDeleteEntry(id);
+    });
+  });
+}
+
+/* ============ FORM ============ */
+function openForm(id) {
+  editingId = id || null;
+  const train = trains.find(t => t.id === activeTrain);
+  const list = entries[train.id] || [];
+  const e = id ? list.find(x => x.id === id) : null;
+  const today = new Date().toISOString().slice(0,10);
+  const wrap = document.getElementById('formWrap');
+  wrap.classList.add('open');
+  wrap.innerHTML = `
+    <div class="form-section-title">${id ? 'Edit RR Entry' : 'New RR Entry'} — ${esc(train.name)}</div>
+    <div class="form-grid">
+      <div class="field"><label>Date</label><input type="date" id="f_date" value="${e?.date || today}"/></div>
+      <div class="field"><label>RR No</label><input type="text" id="f_rrNo" value="${esc(e?.rrNo || '')}" placeholder="e.g. RR-1023"/></div>
+      <div class="field"><label>From (auto)</label><input type="text" id="f_from" value="${esc(train.name)}" readonly/></div>
+      <div class="field"><label>Consignor</label><input type="text" id="f_consignor" value="${esc(e?.consignor || '')}"/></div>
+      <div class="field"><label>To</label><input type="text" id="f_to" value="${esc(e?.to || '')}"/></div>
+      <div class="field"><label>Consignee</label><input type="text" id="f_consignee" value="${esc(e?.consignee || '')}"/></div>
+      <div class="field"><label>Bag</label><input type="number" step="1" min="0" id="f_bag" value="${e?.bag ?? ''}"/></div>
+      <div class="field"><label>GST</label><input type="text" id="f_gst" value="${esc(e?.gst || '')}" placeholder="GSTIN / text"/></div>
+      <div class="field"><label>RR Amount (₹)</label><input type="number" step="0.01" min="0" id="f_rrAmt" value="${e?.rrAmt ?? ''}"/></div>
+      <div class="field"><label>Weight</label><input type="number" step="0.01" min="0" id="f_weight" value="${e?.weight ?? ''}"/></div>
+      <div class="field"><label>Rate (auto)</label><input type="text" id="f_rate" value="${train.rate}" readonly/></div>
+      <div class="field computed"><label>Hamali (Bag × Rate)</label><input type="text" id="f_hamali" value="0" readonly/></div>
+      <div class="field computed"><label>Total (RR Amt + Hamali)</label><input type="text" id="f_total" value="0" readonly/></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" id="cancelBtn">Cancel</button>
+      <button class="btn btn-primary" id="saveBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+        ${id ? 'Update' : 'Save'} Entry
+      </button>
+    </div>
+  `;
+  const bag = document.getElementById('f_bag');
+  const rrAmt = document.getElementById('f_rrAmt');
+  const hamali = document.getElementById('f_hamali');
+  const total = document.getElementById('f_total');
+  function recalc() {
+    const h = (+bag.value || 0) * train.rate;
+    const r = parseFloat(rrAmt.value) || 0;
+    const t = r + h;
+    hamali.value = fmt(h);
+    total.value = fmt(t);
+  }
+  bag.addEventListener('input', recalc);
+  rrAmt.addEventListener('input', recalc);
+  recalc();
+  document.getElementById('cancelBtn').addEventListener('click', () => { wrap.classList.remove('open'); editingId = null; });
+  document.getElementById('saveBtn').addEventListener('click', () => saveEntry(train));
+  document.getElementById('f_rrNo').focus();
+  wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+async function saveEntry(train) {
+  const rrNo = document.getElementById('f_rrNo').value.trim();
+  if (!rrNo) { showToast('RR No is required', 'error'); return; }
+
+  const payload = {
+    id: editingId || null,
+    train_id: train.id,
+    date: document.getElementById('f_date').value,
+    rrNo: rrNo,
+    from: train.name,
+    consignor: document.getElementById('f_consignor').value.trim(),
+    to: document.getElementById('f_to').value.trim(),
+    consignee: document.getElementById('f_consignee').value.trim(),
+    bag: +document.getElementById('f_bag').value || 0,
+    gst: document.getElementById('f_gst').value.trim(),
+    rrAmt: +document.getElementById('f_rrAmt').value || 0,
+    weight: +document.getElementById('f_weight').value || 0,
+    rate: train.rate,
+  };
+
+  try {
+    await api('/api/rr/entries', { method: 'POST', body: JSON.stringify(payload) });
+    showToast(editingId ? 'Entry updated' : 'Entry saved');
+    editingId = null;
+    await loadEntries();
+    renderTrains();
+    renderPanel();
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+  }
+}
+
+function confirmDeleteEntry(id) {
+  openModal(`
+    <h2>Delete entry?</h2>
+    <p>This action cannot be undone.</p>
+    <div class="form-actions">
+      <button class="btn btn-ghost" id="mCancel">Cancel</button>
+      <button class="btn btn-danger" id="mOk">Delete</button>
+    </div>
+  `);
+  document.getElementById('mCancel').addEventListener('click', closeModal);
+  document.getElementById('mOk').addEventListener('click', async () => {
+    try {
+      await api(`/api/rr/entries/${id}`, { method: 'DELETE' });
+      await loadEntries();
+      closeModal(); renderTrains(); renderPanel();
+      showToast('Entry deleted', 'error');
+    } catch (err) {
+      showToast('❌ ' + err.message, 'error');
+    }
+  });
+}
+
+/* ============ ADD / DELETE TRAIN ============ */
+function openAddTrainModal() {
+  openModal(`
+    <h2>Add New Train</h2>
+    <p>Station Name auto-fills the "From" field. Rate is used in Hamali calculation (Bag × Rate).</p>
+    <div class="form-grid" style="grid-template-columns:1fr;">
+      <div class="field"><label>Station Name</label><input type="text" id="nt_name" placeholder="e.g. Lucknow"/></div>
+      <div class="field"><label>Rate (₹ per bag)</label><input type="number" step="1" min="0" id="nt_rate" placeholder="e.g. 55"/></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" id="mCancel">Cancel</button>
+      <button class="btn btn-primary" id="mOk">Add Train</button>
+    </div>
+  `);
+  setTimeout(() => document.getElementById('nt_name').focus(), 100);
+  document.getElementById('mCancel').addEventListener('click', closeModal);
+  document.getElementById('mOk').addEventListener('click', async () => {
+    const name = document.getElementById('nt_name').value.trim();
+    const rate = +document.getElementById('nt_rate').value;
+    if (!name) { showToast('Station name required', 'error'); return; }
+    if (!rate || rate <= 0) { showToast('Valid rate required', 'error'); return; }
+    if (trains.some(t => t.name.toLowerCase() === name.toLowerCase())) {
+      showToast('Train already exists', 'error'); return;
+    }
+    try {
+      const newTrain = await api('/api/rr/trains', { method: 'POST', body: JSON.stringify({ name, rate }) });
+      await loadAll();
+      closeModal();
+      renderTrains();
+      selectTrain(newTrain.id);
+      showToast(`${name} added`);
+    } catch (err) {
+      showToast('❌ ' + err.message, 'error');
+    }
+  });
+}
+
+function confirmDeleteTrain(train) {
+  const count = (entries[train.id] || []).length;
+  openModal(`
+    <h2>Delete ${esc(train.name)}?</h2>
+    <p>${count ? `This will also delete <strong>${count} entries</strong>. ` : ''}This cannot be undone.</p>
+    <div class="form-actions">
+      <button class="btn btn-ghost" id="mCancel">Cancel</button>
+      <button class="btn btn-danger" id="mOk">Delete Train</button>
+    </div>
+  `);
+  document.getElementById('mCancel').addEventListener('click', closeModal);
+  document.getElementById('mOk').addEventListener('click', async () => {
+    try {
+      await api(`/api/rr/trains/${train.id}`, { method: 'DELETE' });
+      await loadAll();
+      activeTrain = null;
+      closeModal(); renderTrains(); renderPanel();
+      showToast(`${train.name} removed`, 'error');
+    } catch (err) {
+      showToast('❌ ' + err.message, 'error');
+    }
+  });
+}
+
+/* ============ ALL ENTRIES VIEW — AUTOCOMPLETE + SEARCH ============ */
+let acHighlight = -1;
+
+function onTrainSearchInput() {
+  acHighlight = -1;
+  const q = (document.getElementById('allSearchTrain').value || '').toLowerCase().trim();
+  const dropdown = document.getElementById('trainDropdown');
+  if (!q) { dropdown.classList.remove('open'); dropdown.innerHTML = ''; return; }
+  const matches = trains.filter(t =>
+    t.name.toLowerCase().includes(q) || String(t.id).toLowerCase().includes(q)
+  );
+  if (!matches.length) {
+    dropdown.innerHTML = `<div class="ac-no-results">No trains found</div>`;
+    dropdown.classList.add('open');
+    return;
+  }
+  dropdown.innerHTML = matches.map((t, i) => `
+    <div class="ac-item" data-name="${esc(t.name)}" data-idx="${i}">
+      <span class="ac-name">${esc(t.name)}</span>
+      <span class="ac-rate">₹${t.rate}/bag</span>
+    </div>`).join('');
+  dropdown.classList.add('open');
+  dropdown.querySelectorAll('.ac-item').forEach(item => {
+    item.addEventListener('mousedown', e => {
+      e.preventDefault();
+      document.getElementById('allSearchTrain').value = item.dataset.name;
+      dropdown.classList.remove('open');
+    });
+  });
+}
+
+function onTrainSearchKey(e) {
+  const dropdown = document.getElementById('trainDropdown');
+  const items = dropdown.querySelectorAll('.ac-item');
+  if (!dropdown.classList.contains('open') || !items.length) {
+    if (e.key === 'Enter') doSearch();
+    return;
+  }
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    acHighlight = Math.min(acHighlight + 1, items.length - 1);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    acHighlight = Math.max(acHighlight - 1, -1);
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    if (acHighlight >= 0 && items[acHighlight]) {
+      document.getElementById('allSearchTrain').value = items[acHighlight].dataset.name;
+      dropdown.classList.remove('open');
+    } else {
+      dropdown.classList.remove('open');
+      doSearch();
+    }
+    return;
+  } else if (e.key === 'Escape') {
+    dropdown.classList.remove('open');
+    return;
+  }
+  items.forEach((item, i) => item.classList.toggle('highlighted', i === acHighlight));
+}
+
+document.addEventListener('click', e => {
+  const wrap = document.querySelector('.autocomplete-wrap');
+  if (wrap && !wrap.contains(e.target)) {
+    const dd = document.getElementById('trainDropdown');
+    if (dd) dd.classList.remove('open');
+  }
+});
+
+function doSearch() {
+  const dd = document.getElementById('trainDropdown');
+  if (dd) dd.classList.remove('open');
+  renderAllEntries();
+}
+
+function clearAllFilters() {
+  document.getElementById('allSearchTrain').value = '';
+  document.getElementById('allFromDate').value = '';
+  document.getElementById('allToDate').value = '';
+  const dd = document.getElementById('trainDropdown');
+  if (dd) { dd.classList.remove('open'); dd.innerHTML = ''; }
+  document.getElementById('allEntriesTable').innerHTML = `
+    <div class="empty-state">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <h3>Use filters above to search</h3>
+      <p>Enter a train name or select dates, then click Search.</p>
+    </div>`;
+}
+
+function renderAllEntries() {
+  const q = (document.getElementById('allSearchTrain').value || '').toLowerCase().trim();
+  const from = document.getElementById('allFromDate').value;
+  const to = document.getElementById('allToDate').value;
+  const container = document.getElementById('allEntriesTable');
+
+  let rows = [];
+  trains.forEach(t => {
+    (entries[t.id] || []).forEach(e => {
+      if (q && !t.name.toLowerCase().includes(q) && !(e.rrNo||'').toLowerCase().includes(q)) return;
+      if (from && e.date < from) return;
+      if (to && e.date > to) return;
+      rows.push({ ...e, _trainName: t.name, _trainId: t.id });
+    });
+  });
+
+  if (!rows.length) {
+    container.innerHTML = `<div class="empty-state">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <h3>No transactions found</h3><p>Adjust your filters or add a new entry.</p>
+    </div>`;
+    return;
+  }
+
+  container.innerHTML = `<div class="table-outer"><table>
+    <thead><tr>
+      <th>Mode</th><th>Date</th><th>Train</th><th>RR No</th><th>Consignor / Consignee</th><th>Contract / Space</th><th style="text-align:right">Amount</th><th>Actions</th>
+    </tr></thead>
+    <tbody>
+      ${rows.map(e => `<tr>
+        <td><span style="display:inline-block;padding:2px 9px;border-radius:20px;background:var(--blue-light);color:var(--blue);font-size:11px;font-weight:700;letter-spacing:.04em;">ENTRY</span></td>
+        <td>${esc(e.date)}</td>
+        <td><strong>${esc(e._trainName)}</strong></td>
+        <td class="mono">${esc(e.rrNo)}</td>
+        <td>${esc(e.consignor)} → ${esc(e.consignee)}</td>
+        <td style="color:var(--muted)">${esc(e.gst || '—')}</td>
+        <td class="total-cell" style="text-align:right">₹${fmt(e.total)}</td>
+        <td>
+          <div class="row-actions">
+            <button class="icon-btn edit" onclick="editFromAll('${e.id}','${e._trainId}')" title="Edit">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4z"/></svg>
+            </button>
+          </div>
+        </td>
+      </tr>`).join('')}
+    </tbody>
+  </table></div>`;
+}
+
+function editFromAll(entryId, trainId) {
+  const train = trains.find(t => t.id === trainId);
+  if (!train) return;
+  selectTrain(train.id);
+  setTimeout(() => openForm(entryId), 100);
+}
+
+function exportAllExcel() {
+  const wb = XLSX.utils.book_new();
+  let any = false;
+  trains.forEach(t => {
+    const list = entries[t.id] || [];
+    if (!list.length) return;
+    any = true;
+    const rows = buildRows(list, t.name);
+    const ws = XLSX.utils.json_to_sheet(rows);
+    XLSX.utils.book_append_sheet(wb, ws, t.name.slice(0,31));
+  });
+  if (!any) { showToast('No entries to export', 'error'); return; }
+  XLSX.writeFile(wb, `SRPS_All_Entries_${new Date().toISOString().slice(0,10)}.xlsx`);
+  showToast('Excel exported');
+}
+
+/* ============ REPORTS ============ */
+function renderReports() {
+  const panel = document.getElementById('reportsPanel');
+  const perTrain = trains.map(t => {
+    const list = entries[t.id] || [];
+    const s = list.reduce((a,e) => ({
+      count: a.count + 1, bag: a.bag + (+e.bag||0),
+      rrAmt: a.rrAmt + (+e.rrAmt||0),
+      hamali: a.hamali + (+e.hamali||0),
+      total: a.total + (+e.total||0),
+    }), {count:0, bag:0, rrAmt:0, hamali:0, total:0});
+    return { name: t.name, rate: t.rate, ...s };
+  });
+
+  const grand = perTrain.reduce((a,p) => ({
+    count: a.count+p.count, bag: a.bag+p.bag,
+    rrAmt: a.rrAmt+p.rrAmt, hamali: a.hamali+p.hamali, total: a.total+p.total
+  }), {count:0,bag:0,rrAmt:0,hamali:0,total:0});
+
+  panel.innerHTML = `
+    <div style="padding:22px;border-bottom:1px solid var(--border)">
+      <div class="stats-row" style="margin-bottom:0">
+        <div class="stat-card"><div class="s-label">Total Trains</div><div class="s-val">${trains.length}</div></div>
+        <div class="stat-card"><div class="s-label">Total Entries</div><div class="s-val">${grand.count}</div></div>
+        <div class="stat-card"><div class="s-label">Total Bags</div><div class="s-val">${fmt(grand.bag)}</div></div>
+        <div class="stat-card"><div class="s-label">Total RR Amt</div><div class="s-val">₹${fmt(grand.rrAmt)}</div></div>
+        <div class="stat-card"><div class="s-label">Total Hamali</div><div class="s-val">₹${fmt(grand.hamali)}</div></div>
+        <div class="stat-card"><div class="s-label">Grand Total</div><div class="s-val accent">₹${fmt(grand.total)}</div></div>
+      </div>
+    </div>
+    <div class="table-outer" style="padding:0">
+      <table class="report-table">
+        <thead><tr>
+          <th>Train</th><th>Rate</th><th>Entries</th><th>Bags</th>
+          <th>RR Amount</th><th>Hamali</th><th>Total</th>
+        </tr></thead>
+        <tbody>
+          ${perTrain.map(p => `<tr>
+            <td><strong>${esc(p.name)}</strong></td>
+            <td class="mono">₹${p.rate}</td>
+            <td class="mono">${p.count}</td>
+            <td class="mono">${fmt(p.bag)}</td>
+            <td class="mono">₹${fmt(p.rrAmt)}</td>
+            <td class="mono">₹${fmt(p.hamali)}</td>
+            <td class="tot">₹${fmt(p.total)}</td>
+          </tr>`).join('')}
+        </tbody>
+        <tfoot><tr>
+          <td colspan="2"><strong>Grand Total</strong></td>
+          <td class="mono"><strong>${grand.count}</strong></td>
+          <td class="mono"><strong>${fmt(grand.bag)}</strong></td>
+          <td class="mono"><strong>₹${fmt(grand.rrAmt)}</strong></td>
+          <td class="mono"><strong>₹${fmt(grand.hamali)}</strong></td>
+          <td class="tot" style="font-size:15px"><strong>₹${fmt(grand.total)}</strong></td>
+        </tr></tfoot>
+      </table>
+    </div>
+  `;
+}
+
+/* ============ EXPORT ============ */
+function buildRows(list, trainName) {
+  return list.map(e => ({
+    'Date': e.date, 'RR No': e.rrNo, 'From': e.from || trainName,
+    'Consignor': e.consignor, 'To': e.to, 'Consignee': e.consignee,
+    'Bag': e.bag, 'GST': e.gst, 'RR Amt': e.rrAmt,
+    'Weight': e.weight, 'Rate': e.rate, 'Hamali': e.hamali, 'Total': e.total,
+  }));
+}
+
+function exportExcel(train) {
+  const list = entries[train.id] || [];
+  if (!list.length) { showToast('Nothing to export', 'error'); return; }
+  const rows = buildRows(list, train.name);
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws['!cols'] = Object.keys(rows[0]).map(k => ({ wch: Math.max(10, k.length + 2) }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, train.name.slice(0,31));
+  XLSX.writeFile(wb, `SRPS_${train.name}_${new Date().toISOString().slice(0,10)}.xlsx`);
+  showToast('Excel exported');
+}
+
+function exportPDF(train) {
+  const list = entries[train.id] || [];
+  if (!list.length) { showToast('Nothing to export', 'error'); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(16);
+  doc.text(`SRPS Cargo — ${train.name} Report`, 40, 40);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+  doc.text(`Rate: Rs.${train.rate} / bag   |   Entries: ${list.length}   |   Generated: ${new Date().toLocaleString('en-IN')}`, 40, 58);
+  const rows = buildRows(list, train.name);
+  const totals = list.reduce((a,e) => ({
+    bag: a.bag + (+e.bag||0), rrAmt: a.rrAmt + (+e.rrAmt||0),
+    hamali: a.hamali + (+e.hamali||0), total: a.total + (+e.total||0), weight: a.weight + (+e.weight||0),
+  }), {bag:0, rrAmt:0, hamali:0, total:0, weight:0});
+  doc.autoTable({
+    startY: 75,
+    head: [Object.keys(rows[0])],
+    body: rows.map(r => Object.values(r)),
+    foot: [['', '', '', '', '', 'TOTAL', totals.bag, '', totals.rrAmt, totals.weight, '', totals.hamali, totals.total]],
+    styles: { fontSize: 8, cellPadding: 4 },
+    headStyles: { fillColor: [27, 156, 227], textColor: 255, fontStyle: 'bold' },
+    footStyles: { fillColor: [232, 244, 252], textColor: [30,50,80], fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [247, 249, 252] },
+  });
+  doc.save(`SRPS_${train.name}_${new Date().toISOString().slice(0,10)}.pdf`);
+  showToast('PDF exported');
+}
+
+function exportCombinedExcel() {
+  const wb = XLSX.utils.book_new();
+  const summary = trains.map(t => {
+    const list = entries[t.id] || [];
+    const s = list.reduce((a,e) => ({
+      count: a.count+1, bag: a.bag+(+e.bag||0),
+      rrAmt: a.rrAmt+(+e.rrAmt||0), hamali: a.hamali+(+e.hamali||0), total: a.total+(+e.total||0),
+    }), {count:0, bag:0, rrAmt:0, hamali:0, total:0});
+    return { Train: t.name, Rate: t.rate, Entries: s.count, Bags: s.bag, 'RR Amt': s.rrAmt, Hamali: s.hamali, Total: s.total };
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summary), 'Summary');
+  let anyData = false;
+  trains.forEach(t => {
+    const list = entries[t.id] || [];
+    if (!list.length) return;
+    anyData = true;
+    const rows = buildRows(list, t.name);
+    const ws = XLSX.utils.json_to_sheet(rows);
+    XLSX.utils.book_append_sheet(wb, ws, t.name.slice(0,31));
+  });
+  if (!anyData) { showToast('No entries to export', 'error'); return; }
+  XLSX.writeFile(wb, `SRPS_Combined_${new Date().toISOString().slice(0,10)}.xlsx`);
+  showToast('Combined Excel exported');
+}
+
+function exportCombinedPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(18);
+  doc.text('SRPS Cargo — Combined RR Report', 40, 40);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+  doc.text(`Generated: ${new Date().toLocaleString('en-IN')}`, 40, 58);
+  const summary = trains.map(t => {
+    const list = entries[t.id] || [];
+    const s = list.reduce((a,e) => ({
+      count: a.count+1, bag: a.bag+(+e.bag||0), total: a.total+(+e.total||0),
+    }), {count:0, bag:0, total:0});
+    return [t.name, `Rs.${t.rate}`, s.count, s.bag, `Rs.${fmt(s.total)}`];
+  });
+  const grand = summary.reduce((a,r) => ({ c: a.c+r[2], b: a.b+r[3] }), {c:0, b:0});
+  const grandTotal = trains.reduce((a,t) => a+(entries[t.id]||[]).reduce((x,e) => x+(+e.total||0),0), 0);
+  doc.autoTable({
+    startY: 75,
+    head: [['Train','Rate','Entries','Bags','Total']],
+    body: summary,
+    foot: [['GRAND TOTAL','',grand.c,grand.b,`Rs.${fmt(grandTotal)}`]],
+    headStyles: { fillColor: [27,156,227], textColor: 255, fontStyle: 'bold' },
+    footStyles: { fillColor: [232,244,252], fontStyle: 'bold' },
+    styles: { fontSize: 10, cellPadding: 6 },
+  });
+  trains.forEach(t => {
+    const list = entries[t.id] || [];
+    if (!list.length) return;
+    doc.addPage();
+    doc.setFont('helvetica','bold'); doc.setFontSize(14);
+    doc.text(`${t.name} — Rate Rs.${t.rate} — ${list.length} entries`, 40, 40);
+    const rows = buildRows(list, t.name);
+    doc.autoTable({
+      startY: 55,
+      head: [Object.keys(rows[0])],
+      body: rows.map(r => Object.values(r)),
+      styles: { fontSize: 7, cellPadding: 3 },
+      headStyles: { fillColor: [27,156,227], textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [247,249,252] },
+    });
+  });
+  doc.save(`SRPS_Combined_${new Date().toISOString().slice(0,10)}.pdf`);
+  showToast('Combined PDF exported');
+}
+
+/* ============ INIT ============ */
+(async function init() {
+  await loadAll();
+  renderTrains();
+  renderPanel();
+})();
+</script>
+</body>
+</html>
