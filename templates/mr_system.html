@@ -1210,11 +1210,8 @@ function exportExcel() {
 
 /* ===== BACKUP ===== */
 function showBackup() {
-  const blob = new Blob([JSON.stringify({ entries, trains })], { type: 'application/json' });
-  const a    = document.createElement('a');
-  a.href     = URL.createObjectURL(blob);
-  a.download = `SRPS_Backup_${todayISO()}.json`;
-  a.click();
+  // Downloads full Excel backup (all 4 tables) from the server
+  window.location.href = '/api/backup';
 }
 
 /* ===== INIT ===== */
