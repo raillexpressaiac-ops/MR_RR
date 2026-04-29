@@ -1,21 +1,25 @@
 """
-SRPS Cargo - Flask + SQLite Backend
+SRPS Cargo - Flask + PostgreSQL Backend
 ========================================
 Combines two systems:
   1. MR Management  (Online GST + Offline MR entries)
   2. RR Manager     (Hamali calculator with per-train bag rate)
 
-All UI logic preserved from original HTML files; data is now stored
-in SQLite instead of localStorage.
+Database: PostgreSQL (via psycopg2)
+Uses DATABASE_URL environment variable (set automatically by Railway).
 """
 
 import os
+import io
 import time
 import random
-import sqlite3
+import psycopg2
+import psycopg2.extras
 from datetime import date, datetime
 
-from flask import Flask, render_template, request, jsonify, redirect, url_for
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment
+from flask import Flask, render_template, request, jsonify, redirect, url_for, send_file
 from flask_cors import CORS
 from dotenv import load_dotenv
 
@@ -27,43 +31,44 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "srps_cargo.db")
-
 
 def get_conn():
-    """Open a fresh sqlite3 connection with FK enforcement on."""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row  # Access columns by name
-    # Enforce foreign keys (ON DELETE CASCADE etc.)
-    conn.execute("PRAGMA foreign_keys = ON")
+    """Open a fresh PostgreSQL connection using DATABASE_URL."""
+    database_url = os.environ.get("DATABASE_URL")
+    if not database_url:
+        raise RuntimeError("DATABASE_URL environment variable is not set.")
+    conn = psycopg2.connect(database_url)
     return conn
 
 
 def init_db():
     """
     Apply schema.sql safely.
-
-    The schema uses CREATE TABLE IF NOT EXISTS and INSERT OR IGNORE,
+    Uses CREATE TABLE IF NOT EXISTS and ON CONFLICT DO NOTHING,
     so running this on every startup is harmless and will NOT delete
-    existing user data. Only missing tables/seed rows get created.
+    existing user data.
     """
     schema_path = os.path.join(os.path.dirname(__file__), "schema.sql")
     if not os.path.exists(schema_path):
         print("[init_db] schema.sql not found, skipping.")
         return
 
-    db_existed = os.path.exists(DB_PATH)
     conn = get_conn()
     try:
         with open(schema_path, "r", encoding="utf-8") as f:
             sql = f.read()
-        conn.executescript(sql)
+
+        cur = conn.cursor()
+        # Split by semicolon and execute each statement individually
+        statements = [s.strip() for s in sql.split(";") if s.strip() and not s.strip().startswith("--")]
+        for stmt in statements:
+            if stmt:
+                cur.execute(stmt)
         conn.commit()
-        if db_existed:
-            print("[init_db] DB already exists — schema verified, data preserved.")
-        else:
-            print("[init_db] Fresh DB created with seed data.")
+        cur.close()
+        print("[init_db] PostgreSQL DB initialized successfully.")
     except Exception as e:
+        conn.rollback()
         print(f"[init_db] Schema apply failed: {e}")
     finally:
         conn.close()
@@ -73,17 +78,23 @@ def init_db():
 # Helpers
 # ----------------------------------------------------------------------------
 def row_to_dict(row):
-    """Turn a sqlite3 Row into a JSON-friendly dict."""
+    """Turn a psycopg2 RealDictRow into a JSON-friendly dict."""
     if row is None:
         return None
     out = {}
-    for k in row.keys():
-        v = row[k]
-        if isinstance(v, (date, datetime)):
-            out[k] = v.isoformat()[:10] if isinstance(v, date) and not isinstance(v, datetime) else v.isoformat()
+    for k, v in row.items():
+        if isinstance(v, datetime):
+            out[k] = v.isoformat()
+        elif isinstance(v, date):
+            out[k] = v.isoformat()
         else:
             out[k] = v
     return out
+
+
+def get_cursor(conn):
+    """Return a RealDictCursor so columns are accessible by name."""
+    return conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
 
 def gen_mr_id():
@@ -128,14 +139,12 @@ def rr_manager():
 @app.route("/api/mr/trains", methods=["GET"])
 def mr_trains_list():
     conn = get_conn()
-    cur = conn.cursor()
+    cur = get_cursor(conn)
     cur.execute("SELECT * FROM mr_trains ORDER BY mode DESC, name ASC")
     rows = cur.fetchall()
     cur.close()
     conn.close()
 
-    # Reshape into the shape the front-end JS expects:
-    # { no, name, mode, contract, fixed: {...} }
     trains = []
     for r in rows:
         d = row_to_dict(r)
@@ -177,22 +186,22 @@ def mr_train_create():
         return jsonify({"error": "Train no, name and valid mode are required"}), 400
 
     conn = get_conn()
-    cur = conn.cursor()
+    cur = get_cursor(conn)
     try:
         if mode == "online":
             cur.execute("""
                 INSERT INTO mr_trains (no, name, mode, contract,
                     fixed_taxable, fixed_cgst, fixed_sgst, fixed_igst, fixed_total_supply)
-                VALUES (?,?,?,?, 0,0,0,0,0)
+                VALUES (%s, %s, %s, %s, 0, 0, 0, 0, 0)
             """, (no, name, mode, contract))
         else:
             cur.execute("""
                 INSERT INTO mr_trains (no, name, mode, contract,
                     fixed_weight, fixed_gst, fixed_mr_amt, fixed_total, fixed_pmode)
-                VALUES (?,?,?,?, '4 TON', 0, 0, 0, 'CASH')
+                VALUES (%s, %s, %s, %s, '4 TON', 0, 0, 0, 'CASH')
             """, (no, name, mode, contract))
         conn.commit()
-    except sqlite3.IntegrityError:
+    except psycopg2.IntegrityError:
         conn.rollback()
         return jsonify({"error": f"Train number '{no}' already exists"}), 409
     except Exception as e:
@@ -207,17 +216,15 @@ def mr_train_create():
 @app.route("/api/mr/trains/<path:train_no>", methods=["DELETE"])
 def mr_train_delete(train_no):
     conn = get_conn()
-    cur = conn.cursor()
+    cur = get_cursor(conn)
     try:
-        # Kept entries by design — only block deletion if FK constraint hit
-        cur.execute("DELETE FROM mr_trains WHERE no = ?", (train_no,))
+        cur.execute("DELETE FROM mr_trains WHERE no = %s", (train_no,))
         conn.commit()
     except Exception as e:
-        if "FOREIGN KEY constraint failed" in str(e):
-            conn.rollback()
+        conn.rollback()
+        if "foreign key" in str(e).lower():
             return jsonify({"error": "This train has entries; remove them first."}), 409
-        else:
-            raise
+        raise
     finally:
         cur.close()
         conn.close()
@@ -230,19 +237,18 @@ def mr_train_delete(train_no):
 @app.route("/api/mr/entries", methods=["GET"])
 def mr_entries_list():
     conn = get_conn()
-    cur = conn.cursor()
+    cur = get_cursor(conn)
     cur.execute("SELECT * FROM mr_entries ORDER BY entry_date DESC, created_at DESC")
     rows = cur.fetchall()
     cur.close()
     conn.close()
 
-    # Reshape rows so the JS sees the same field names it uses:
     out = []
     for r in rows:
         d = row_to_dict(r)
         out.append({
             "id":           d["id"],
-            "date":         d["entry_date"],          # JS uses .date
+            "date":         d["entry_date"],
             "train_no":     d["train_no"],
             "mode":         d["mode"],
             "contract":     d["contract"],
@@ -272,7 +278,7 @@ def mr_entries_list():
 
 @app.route("/api/mr/entries", methods=["POST"])
 def mr_entry_save():
-    """Upsert a single entry. Replaces matching id, else inserts new."""
+    """Upsert a single entry. Updates if id exists, else inserts new."""
     e = request.get_json(force=True)
 
     entry_id = e.get("id") or gen_mr_id()
@@ -320,19 +326,42 @@ def mr_entry_save():
     payload = {**common, **specific}
 
     conn = get_conn()
-    cur = conn.cursor()
+    cur = get_cursor(conn)
     try:
-        # SQLite doesn't support ON CONFLICT with multiple columns, so we use INSERT OR REPLACE
         cur.execute("""
-            INSERT OR REPLACE INTO mr_entries (
+            INSERT INTO mr_entries (
                 id, entry_date, train_no, mode, contract, space, penalty, issue_date,
                 invoice, service_date, taxable, cgst, sgst, igst, total_value_supply,
                 side, mr, weight, gst, mramt, total, pmode, remark, updated_at
             ) VALUES (
-                ?, ?, ?, ?, ?, ?, ?, ?,
-                ?, ?, ?, ?, ?, ?, ?,
-                ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP
+                %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP
             )
+            ON CONFLICT (id) DO UPDATE SET
+                entry_date         = EXCLUDED.entry_date,
+                train_no           = EXCLUDED.train_no,
+                mode               = EXCLUDED.mode,
+                contract           = EXCLUDED.contract,
+                space              = EXCLUDED.space,
+                penalty            = EXCLUDED.penalty,
+                issue_date         = EXCLUDED.issue_date,
+                invoice            = EXCLUDED.invoice,
+                service_date       = EXCLUDED.service_date,
+                taxable            = EXCLUDED.taxable,
+                cgst               = EXCLUDED.cgst,
+                sgst               = EXCLUDED.sgst,
+                igst               = EXCLUDED.igst,
+                total_value_supply = EXCLUDED.total_value_supply,
+                side               = EXCLUDED.side,
+                mr                 = EXCLUDED.mr,
+                weight             = EXCLUDED.weight,
+                gst                = EXCLUDED.gst,
+                mramt              = EXCLUDED.mramt,
+                total              = EXCLUDED.total,
+                pmode              = EXCLUDED.pmode,
+                remark             = EXCLUDED.remark,
+                updated_at         = CURRENT_TIMESTAMP
         """, (
             payload["id"], payload["entry_date"], payload["train_no"], payload["mode"],
             payload["contract"], payload["space"], payload["penalty"], payload["issue_date"],
@@ -355,8 +384,8 @@ def mr_entry_save():
 @app.route("/api/mr/entries/<entry_id>", methods=["DELETE"])
 def mr_entry_delete(entry_id):
     conn = get_conn()
-    cur = conn.cursor()
-    cur.execute("DELETE FROM mr_entries WHERE id = ?", (entry_id,))
+    cur = get_cursor(conn)
+    cur.execute("DELETE FROM mr_entries WHERE id = %s", (entry_id,))
     conn.commit()
     cur.close()
     conn.close()
@@ -369,7 +398,7 @@ def mr_entry_delete(entry_id):
 @app.route("/api/rr/trains", methods=["GET"])
 def rr_trains_list():
     conn = get_conn()
-    cur = conn.cursor()
+    cur = get_cursor(conn)
     cur.execute("SELECT id, name, rate FROM rr_trains ORDER BY created_at ASC")
     rows = [row_to_dict(r) for r in cur.fetchall()]
     cur.close()
@@ -392,20 +421,19 @@ def rr_train_create():
     except (TypeError, ValueError):
         return jsonify({"error": "Valid rate required"}), 400
 
-    # Mirror the JS id generation
     safe = "".join(c if c.isalnum() else "_" for c in name.lower()).strip("_")
     suffix = "".join(random.choice("0123456789abcdefghijklmnopqrstuvwxyz") for _ in range(3))
     new_id = f"{safe}_{suffix}"
 
     conn = get_conn()
-    cur = conn.cursor()
+    cur = get_cursor(conn)
     try:
         cur.execute(
-            "INSERT INTO rr_trains (id, name, rate) VALUES (?, ?, ?)",
+            "INSERT INTO rr_trains (id, name, rate) VALUES (%s, %s, %s)",
             (new_id, name, rate)
         )
         conn.commit()
-    except sqlite3.IntegrityError:
+    except psycopg2.IntegrityError:
         conn.rollback()
         return jsonify({"error": "Train already exists"}), 409
     finally:
@@ -418,8 +446,8 @@ def rr_train_create():
 @app.route("/api/rr/trains/<train_id>", methods=["DELETE"])
 def rr_train_delete(train_id):
     conn = get_conn()
-    cur = conn.cursor()
-    cur.execute("DELETE FROM rr_trains WHERE id = ?", (train_id,))
+    cur = get_cursor(conn)
+    cur.execute("DELETE FROM rr_trains WHERE id = %s", (train_id,))
     conn.commit()
     cur.close()
     conn.close()
@@ -433,11 +461,8 @@ def rr_train_delete(train_id):
 def rr_entries_list():
     """Return entries grouped by train_id, matching JS shape: { train_id: [entries...] }."""
     conn = get_conn()
-    cur = conn.cursor()
-    cur.execute("""
-        SELECT * FROM rr_entries
-        ORDER BY entry_date DESC, created_at DESC
-    """)
+    cur = get_cursor(conn)
+    cur.execute("SELECT * FROM rr_entries ORDER BY entry_date DESC, created_at DESC")
     rows = cur.fetchall()
     cur.close()
     conn.close()
@@ -503,17 +528,33 @@ def rr_entry_save():
     }
 
     conn = get_conn()
-    cur = conn.cursor()
+    cur = get_cursor(conn)
     try:
         cur.execute("""
-            INSERT OR REPLACE INTO rr_entries (
+            INSERT INTO rr_entries (
                 id, train_id, entry_date, rr_no, from_station, consignor,
                 to_station, consignee, bag, gst, rr_amt, weight, rate, hamali, total, updated_at
             ) VALUES (
-                ?, ?, ?, ?, ?, ?,
-                ?, ?, ?, ?, ?,
-                ?, ?, ?, ?, CURRENT_TIMESTAMP
+                %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, CURRENT_TIMESTAMP
             )
+            ON CONFLICT (id) DO UPDATE SET
+                train_id     = EXCLUDED.train_id,
+                entry_date   = EXCLUDED.entry_date,
+                rr_no        = EXCLUDED.rr_no,
+                from_station = EXCLUDED.from_station,
+                consignor    = EXCLUDED.consignor,
+                to_station   = EXCLUDED.to_station,
+                consignee    = EXCLUDED.consignee,
+                bag          = EXCLUDED.bag,
+                gst          = EXCLUDED.gst,
+                rr_amt       = EXCLUDED.rr_amt,
+                weight       = EXCLUDED.weight,
+                rate         = EXCLUDED.rate,
+                hamali       = EXCLUDED.hamali,
+                total        = EXCLUDED.total,
+                updated_at   = CURRENT_TIMESTAMP
         """, (
             payload["id"], payload["train_id"], payload["entry_date"], payload["rr_no"],
             payload["from_station"], payload["consignor"], payload["to_station"],
@@ -524,10 +565,9 @@ def rr_entry_save():
         conn.commit()
     except Exception as ex:
         conn.rollback()
-        if "FOREIGN KEY constraint failed" in str(ex):
+        if "foreign key" in str(ex).lower():
             return jsonify({"error": "Invalid train_id"}), 400
-        else:
-            return jsonify({"error": str(ex)}), 500
+        return jsonify({"error": str(ex)}), 500
     finally:
         cur.close()
         conn.close()
@@ -538,12 +578,83 @@ def rr_entry_save():
 @app.route("/api/rr/entries/<entry_id>", methods=["DELETE"])
 def rr_entry_delete(entry_id):
     conn = get_conn()
-    cur = conn.cursor()
-    cur.execute("DELETE FROM rr_entries WHERE id = ?", (entry_id,))
+    cur = get_cursor(conn)
+    cur.execute("DELETE FROM rr_entries WHERE id = %s", (entry_id,))
     conn.commit()
     cur.close()
     conn.close()
     return jsonify({"status": "ok"})
+
+
+# ============================================================
+# Backup — Download all data as Excel
+# ============================================================
+@app.route("/api/backup")
+def backup():
+    """Generate and download a full Excel backup of all 4 tables."""
+    conn = get_conn()
+    cur  = get_cursor(conn)
+
+    # ---- fetch all data ----
+    cur.execute("SELECT * FROM mr_trains  ORDER BY mode, name")
+    mr_trains = cur.fetchall()
+
+    cur.execute("SELECT * FROM mr_entries ORDER BY entry_date DESC")
+    mr_entries = cur.fetchall()
+
+    cur.execute("SELECT * FROM rr_trains  ORDER BY name")
+    rr_trains = cur.fetchall()
+
+    cur.execute("SELECT * FROM rr_entries ORDER BY entry_date DESC")
+    rr_entries = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    # ---- build workbook ----
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)  # remove default blank sheet
+
+    header_font  = Font(bold=True, color="FFFFFF")
+    header_fill  = PatternFill("solid", fgColor="1B6CA8")
+    center_align = Alignment(horizontal="center")
+
+    def add_sheet(wb, title, rows):
+        ws = wb.create_sheet(title=title)
+        if not rows:
+            ws.append(["No data"])
+            return
+        headers = list(rows[0].keys())
+        ws.append(headers)
+        for cell in ws[1]:
+            cell.font  = header_font
+            cell.fill  = header_fill
+            cell.alignment = center_align
+        for row in rows:
+            ws.append([str(v) if v is not None else "" for v in row.values()])
+        for col in ws.columns:
+            max_len = max(len(str(cell.value or "")) for cell in col)
+            ws.column_dimensions[col[0].column_letter].width = min(max_len + 4, 40)
+
+    add_sheet(wb, "MR Trains",   mr_trains)
+    add_sheet(wb, "MR Entries",  mr_entries)
+    add_sheet(wb, "RR Trains",   rr_trains)
+    add_sheet(wb, "RR Entries",  rr_entries)
+
+    # ---- send as download ----
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    today = date.today().strftime("%Y-%m-%d")
+    filename = f"SRPS_Backup_{today}.xlsx"
+
+    return send_file(
+        buf,
+        as_attachment=True,
+        download_name=filename,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
 
 # ============================================================
@@ -553,7 +664,7 @@ def rr_entry_delete(entry_id):
 def health():
     try:
         conn = get_conn()
-        cur = conn.cursor()
+        cur = get_cursor(conn)
         cur.execute("SELECT 1")
         cur.close()
         conn.close()
@@ -564,8 +675,7 @@ def health():
 
 # ----------------------------------------------------------------------------
 # Always run init_db when the module loads so gunicorn (and __main__) both
-# get a fully initialised database on startup. Safe to run repeatedly —
-# schema uses CREATE TABLE IF NOT EXISTS and INSERT OR IGNORE.
+# get a fully initialised database on startup.
 init_db()
 
 if __name__ == "__main__":
